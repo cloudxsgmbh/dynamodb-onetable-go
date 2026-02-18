@@ -1,0 +1,59 @@
+# OneTable Go (llms.txt)
+
+Purpose: Go port of `dynamodb-onetable` with API parity. Uses AWS SDK v2. Module: `github.com/cloudxs/onetable`.
+
+## Files of interest
+- `table.go`: main Table API + DynamoDB execution
+- `model.go`: Model CRUD + schema logic + unique handling
+- `expression.go`: expression builder (key/filter/update)
+- `schema.go`: schema types
+- `tests/`: full test suite + `fullMock` DynamoDB in-memory client
+
+## Build/Test
+
+```bash
+go test ./...
+```
+
+## Core API
+
+```go
+// Table
+NewTable(TableParams{ Name, Client, Schema, ... })
+
+// CRUD
+Table.Create(ctx, modelName, Item, *Params)
+Table.Get(ctx, modelName, Item, *Params)
+Table.Update(ctx, modelName, Item, *Params)
+Table.Upsert(ctx, modelName, Item, *Params) // no existence check
+Table.Remove(ctx, modelName, Item, *Params)
+Table.Find(ctx, modelName, Item, *Params)
+Table.Scan(ctx, modelName, Item, *Params)
+
+// Batch/Transact
+Table.BatchWrite(ctx, batch, *Params)
+Table.BatchGet(ctx, batch, *Params)
+Table.Transact(ctx, op, transaction, *Params)
+```
+
+## Params
+- `Exists *bool`: true=must exist, false=must not exist, nil=upsert
+- `Index string`: index name
+- `Where/Set/Add/Remove/Delete/Push`: expression helpers
+- `Batch` / `Transaction`: accumulation maps
+- `Hidden`, `Partial`, `Consistent`, `Limit`, `Next`, `Prev`, etc.
+
+## Schema
+- `SchemaDef`, `IndexDef`, `ModelDef` in `schema.go`
+- Field types: `FieldTypeString`, `FieldTypeNumber`, `FieldTypeDate`, `FieldTypeObject`, `FieldTypeArray`, ...
+- Templates: `${field}` for key composition
+- Unique fields: `Unique: true` → sentinel items
+
+## Tests
+- `tests/testutil_test.go`: full mock client + schemas
+- No real DynamoDB needed
+
+## Notes
+- Update vs Upsert: use `Table.Upsert` (update with `Exists=nil` semantics)
+- Composite keys in mock: `pk||sk`
+- Expressions: built in `expression.go`; batch/transact inputs are built as typed AWS SDK inputs (no JSON roundtrip)
