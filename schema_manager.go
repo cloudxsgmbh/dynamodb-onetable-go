@@ -211,10 +211,16 @@ func (sm *schemaManager) createMigrationModel() {
 	sm.models[migrationModelName] = sm.migrationModel
 }
 
-// SetSchema replaces the active schema.
-func (sm *schemaManager) SetSchema(schema *SchemaDef) map[string]*IndexDef {
-	sm.setSchemaInner(schema)
-	return sm.indexes
+// SetSchema replaces the active schema. When schema is nil the current schema
+// is cleared and index keys are re-discovered from DynamoDB (mirrors JS behaviour).
+func (sm *schemaManager) SetSchema(ctx context.Context, schema *SchemaDef) (map[string]*IndexDef, error) {
+	if schema != nil {
+		sm.setSchemaInner(schema)
+		return sm.indexes, nil
+	}
+	// nil → clear schema, then auto-discover indexes from DDB
+	sm.setSchemaInner(nil)
+	return sm.GetKeys(ctx, true)
 }
 
 // GetKeys reads the DynamoDB table description to discover index keys when no
@@ -386,6 +392,41 @@ func (sm *schemaManager) ReadSchema(ctx context.Context) (*SchemaDef, error) {
 		return nil, nil
 	}
 	return itemToSchemaDef(item), nil
+}
+
+// ReadSchemas returns all schema items previously stored in the table (all versions).
+func (sm *schemaManager) ReadSchemas(ctx context.Context) ([]*SchemaDef, error) {
+	if sm.indexes == nil {
+		if _, err := sm.GetKeys(ctx, false); err != nil {
+			return nil, err
+		}
+	}
+	primary := sm.indexes["primary"]
+	props := Item{primary.Hash: schemaKey}
+	result, err := sm.table.QueryItems(ctx, props, &Params{Hidden: boolPtr(true), Parse: true})
+	if err != nil {
+		return nil, err
+	}
+	schemas := make([]*SchemaDef, 0, len(result.Items))
+	for _, item := range result.Items {
+		schemas = append(schemas, itemToSchemaDef(item))
+	}
+	return schemas, nil
+}
+
+// RemoveSchema deletes a previously saved schema item from the table.
+// schema must contain a Name field that matches the saved schema's name.
+func (sm *schemaManager) RemoveSchema(ctx context.Context, schema *SchemaDef) error {
+	if sm.indexes == nil {
+		if _, err := sm.GetKeys(ctx, false); err != nil {
+			return err
+		}
+	}
+	if schema == nil || schema.Name == "" {
+		return fmt.Errorf("schema must have a Name to remove")
+	}
+	_, err := sm.schemaModel.Remove(ctx, Item{"name": schema.Name}, nil)
+	return err
 }
 
 // itemToSchemaDef is a best-effort conversion from a raw Item to SchemaDef.

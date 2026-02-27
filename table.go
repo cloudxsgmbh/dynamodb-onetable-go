@@ -227,8 +227,11 @@ func (t *Table) getSchemaParams() SchemaParams {
 
 // ─── Public schema API ────────────────────────────────────────────────────────
 
-func (t *Table) SetSchema(schema *SchemaDef) map[string]*IndexDef {
-	return t.schemaMgr.SetSchema(schema)
+// SetSchema replaces the active schema. When schema is nil the current schema
+// is cleared and the table index definitions are re-discovered from DynamoDB
+// (equivalent to calling GetKeys). Returns the resolved index map.
+func (t *Table) SetSchema(ctx context.Context, schema *SchemaDef) (map[string]*IndexDef, error) {
+	return t.schemaMgr.SetSchema(ctx, schema)
 }
 
 func (t *Table) GetCurrentSchema() *SchemaDef {
@@ -253,6 +256,44 @@ func (t *Table) RemoveModel(name string) error {
 
 func (t *Table) ListModels() []string {
 	return t.schemaMgr.ListModels()
+}
+
+// SetClient replaces the DynamoDB client used by the table after construction.
+func (t *Table) SetClient(client DynamoClient) {
+	t.client = client
+}
+
+// GetLog returns the Logger currently in use by the table.
+func (t *Table) GetLog() Logger {
+	return t.log
+}
+
+// SetLog replaces the Logger used by the table after construction.
+func (t *Table) SetLog(logger Logger) {
+	t.log = logger
+}
+
+// SaveSchema persists the current (or supplied) schema to the DynamoDB table.
+// If schema is nil the current in-memory schema is saved.
+func (t *Table) SaveSchema(ctx context.Context, schema *SchemaDef) error {
+	return t.schemaMgr.SaveSchema(ctx, schema)
+}
+
+// ReadSchema reads the "Current" schema item previously stored by SaveSchema.
+// Returns nil if no schema has been saved.
+func (t *Table) ReadSchema(ctx context.Context) (*SchemaDef, error) {
+	return t.schemaMgr.ReadSchema(ctx)
+}
+
+// ReadSchemas returns all schema items stored in the table (all versions).
+func (t *Table) ReadSchemas(ctx context.Context) ([]*SchemaDef, error) {
+	return t.schemaMgr.ReadSchemas(ctx)
+}
+
+// RemoveSchema deletes a previously saved schema item from the table.
+// The schema argument must contain at least a Name field.
+func (t *Table) RemoveSchema(ctx context.Context, schema *SchemaDef) error {
+	return t.schemaMgr.RemoveSchema(ctx, schema)
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -552,6 +593,50 @@ func (t *Table) GroupByType(items []Item, params *Params) map[string][]Item {
 	return result
 }
 
+// ─── Fetch ────────────────────────────────────────────────────────────────────
+
+// Fetch retrieves an item-collection of different model types that share the
+// same primary-key value. models is a list of model type names to include.
+// properties must provide the hash key shared by those models.
+// Returns a map keyed by model type name, each value being a []Item.
+//
+// Example:
+//
+//	items, err := table.Fetch(ctx, []string{"User", "Product"}, onetable.Item{"pk": "account#acme"}, nil)
+//	users    := items["User"]
+//	products := items["Product"]
+func (t *Table) Fetch(ctx context.Context, models []string, properties Item, params *Params) (map[string][]Item, error) {
+	if len(models) == 0 {
+		return map[string][]Item{}, nil
+	}
+	if params == nil {
+		params = &Params{}
+	}
+
+	// build a where clause that matches any of the requested model types
+	where := make([]string, 0, len(models))
+	for _, name := range models {
+		where = append(where, fmt.Sprintf("${%s} = {%s}", t.typeField, name))
+	}
+	combined := strings.Join(where, " or ")
+	if params.Where != "" {
+		params.Where = fmt.Sprintf("(%s) and (%s)", params.Where, combined)
+	} else {
+		params.Where = combined
+	}
+
+	p := *params
+	p.Parse = true
+	hidden := true
+	p.Hidden = &hidden
+
+	result, err := t.schemaMgr.genericModel.queryItems(ctx, properties, &p)
+	if err != nil {
+		return nil, err
+	}
+	return t.GroupByType(result.Items, params), nil
+}
+
 // ─── DDL ──────────────────────────────────────────────────────────────────────
 
 const confirmRemoveTable = "DeleteTableForever"
@@ -717,6 +802,143 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 		}
 	}
 	return def
+}
+
+// UpdateTableParams controls Table.UpdateTable.
+type UpdateTableParams struct {
+	// Create a new GSI. Set Hash (required), Sort (optional), Name (required),
+	// Project ("all"|"keys"|[]string), Provisioned (*types.ProvisionedThroughput).
+	Create *UpdateTableIndex
+	// Remove an existing GSI by name.
+	Remove *UpdateTableIndex
+	// Update throughput on an existing GSI.
+	Update *UpdateTableIndex
+	// Provisioned throughput for the table (nil → PAY_PER_REQUEST).
+	Provisioned *types.ProvisionedThroughput
+}
+
+// UpdateTableIndex describes a GSI for create/remove/update.
+type UpdateTableIndex struct {
+	Name        string
+	Hash        string
+	Sort        string
+	Project     any // "all"|"keys"|[]string
+	Provisioned *types.ProvisionedThroughput
+}
+
+// UpdateTable creates, removes or updates a Global Secondary Index on the table.
+//
+// Create example:
+//
+//	err = table.UpdateTable(ctx, &onetable.UpdateTableParams{
+//	    Create: &onetable.UpdateTableIndex{Name: "gs1", Hash: "gs1pk", Sort: "gs1sk"},
+//	})
+//
+// Remove example:
+//
+//	err = table.UpdateTable(ctx, &onetable.UpdateTableParams{
+//	    Remove: &onetable.UpdateTableIndex{Name: "gs1"},
+//	})
+func (t *Table) UpdateTable(ctx context.Context, params *UpdateTableParams) error {
+	if params == nil {
+		return nil
+	}
+	indexes := t.schemaMgr.indexes
+	if indexes == nil {
+		return NewArgError("Cannot update table without schema indexes")
+	}
+
+	input := &ddb.UpdateTableInput{
+		TableName: &t.Name,
+	}
+
+	if params.Provisioned != nil {
+		if (params.Provisioned.ReadCapacityUnits == nil || *params.Provisioned.ReadCapacityUnits == 0) &&
+			(params.Provisioned.WriteCapacityUnits == nil || *params.Provisioned.WriteCapacityUnits == 0) {
+			input.BillingMode = types.BillingModePayPerRequest
+		} else {
+			input.BillingMode = types.BillingModeProvisioned
+			input.ProvisionedThroughput = params.Provisioned
+		}
+	}
+
+	switch {
+	case params.Create != nil:
+		c := params.Create
+		primary := indexes["primary"]
+		if c.Hash == "" || c.Hash == primary.Hash {
+			return NewArgError("Cannot create an LSI via UpdateTable; use CreateTable instead")
+		}
+
+		var projType types.ProjectionType
+		var nonKeyAttrs []string
+		switch p := c.Project.(type) {
+		case []string:
+			projType = types.ProjectionTypeInclude
+			nonKeyAttrs = p
+		case string:
+			if p == "keys" {
+				projType = types.ProjectionTypeKeysOnly
+			} else {
+				projType = types.ProjectionTypeAll
+			}
+		default:
+			projType = types.ProjectionTypeAll
+		}
+		proj := &types.Projection{ProjectionType: projType}
+		if len(nonKeyAttrs) > 0 {
+			proj.NonKeyAttributes = nonKeyAttrs
+		}
+
+		keySchema := []types.KeySchemaElement{
+			{AttributeName: strPtr(c.Hash), KeyType: types.KeyTypeHash},
+		}
+		attrDefs := []types.AttributeDefinition{
+			{AttributeName: strPtr(c.Hash), AttributeType: types.ScalarAttributeTypeS},
+		}
+		if c.Sort != "" {
+			keySchema = append(keySchema, types.KeySchemaElement{
+				AttributeName: strPtr(c.Sort), KeyType: types.KeyTypeRange,
+			})
+			attrDefs = append(attrDefs, types.AttributeDefinition{
+				AttributeName: strPtr(c.Sort), AttributeType: types.ScalarAttributeTypeS,
+			})
+		}
+		gsi := types.CreateGlobalSecondaryIndexAction{
+			IndexName:  strPtr(c.Name),
+			KeySchema:  keySchema,
+			Projection: proj,
+		}
+		if c.Provisioned != nil {
+			gsi.ProvisionedThroughput = c.Provisioned
+		}
+		input.AttributeDefinitions = attrDefs
+		input.GlobalSecondaryIndexUpdates = []types.GlobalSecondaryIndexUpdate{
+			{Create: &gsi},
+		}
+
+	case params.Remove != nil:
+		input.GlobalSecondaryIndexUpdates = []types.GlobalSecondaryIndexUpdate{
+			{Delete: &types.DeleteGlobalSecondaryIndexAction{
+				IndexName: strPtr(params.Remove.Name),
+			}},
+		}
+
+	case params.Update != nil:
+		u := params.Update
+		update := types.UpdateGlobalSecondaryIndexAction{
+			IndexName: strPtr(u.Name),
+		}
+		if u.Provisioned != nil {
+			update.ProvisionedThroughput = u.Provisioned
+		}
+		input.GlobalSecondaryIndexUpdates = []types.GlobalSecondaryIndexUpdate{
+			{Update: &update},
+		}
+	}
+
+	_, err := t.client.UpdateTable(ctx, input)
+	return err
 }
 
 func (t *Table) getAttributeType(name string) string {
