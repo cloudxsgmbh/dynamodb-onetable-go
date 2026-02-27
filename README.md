@@ -5,7 +5,7 @@ Go port of `dynamodb-onetable` (single-table DynamoDB library). API mirrors JS v
 ## Install
 
 ```bash
-go get github.com/cloudxs/onetable
+go get github.com/cloudxsgmbh/dynamodb-onetable-go
 ```
 
 ## Quick start
@@ -15,7 +15,7 @@ import (
     "context"
 
     "github.com/aws/aws-sdk-go-v2/service/dynamodb"
-    ot "github.com/cloudxs/onetable"
+    ot "github.com/cloudxsgmbh/dynamodb-onetable-go"
 )
 
 client := dynamodb.New(dynamodb.Options{ /* config */ })
@@ -42,7 +42,7 @@ _ = user
 ```go
 var MySchema = &ot.SchemaDef{
     Format:  "onetable:1.1.0",
-    Version: "0.0.1",
+    Version: "1.0.0",
     Indexes: map[string]*ot.IndexDef{
         "primary": {Hash: "pk", Sort: "sk"},
         "gs1":     {Hash: "gs1pk", Sort: "gs1sk", Project: "all"},
