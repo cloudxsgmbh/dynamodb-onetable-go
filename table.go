@@ -22,6 +22,7 @@ import (
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	uid "github.com/cloudxsgmbh/dynamodb-onetable-go/internal/uid"
+	ulid "github.com/cloudxsgmbh/dynamodb-onetable-go/internal/ulid"
 )
 
 // DynamoClient is the interface satisfied by both the real AWS DynamoDB client
@@ -1380,7 +1381,7 @@ func (t *Table) UUID() string {
 }
 
 func (t *Table) ULID() string {
-	return uid.New().String()
+	return ulid.New().String()
 }
 
 func (t *Table) UID(size int) string {
