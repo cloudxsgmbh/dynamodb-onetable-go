@@ -7,8 +7,9 @@ package uid
 
 import (
 	"crypto/rand"
-	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"time"
@@ -35,16 +36,25 @@ func UID(size int) string {
 	return string(out)
 }
 
-// UUID returns a simple (non-crypto) RFC-4122 v4 UUID string.
+// UUID returns an RFC-4122 v4 UUID string.
 func UUID() string {
 	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	if _, err := io.ReadFull(rand.Reader, b[:]); err != nil {
 		panic("uid: crypto/rand read failed: " + err.Error())
 	}
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
 	b[8] = (b[8] & 0x3f) | 0x80 // variant bits
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	var out [36]byte
+	hex.Encode(out[0:8], b[0:4])
+	out[8] = '-'
+	hex.Encode(out[9:13], b[4:6])
+	out[13] = '-'
+	hex.Encode(out[14:18], b[6:8])
+	out[18] = '-'
+	hex.Encode(out[19:23], b[8:10])
+	out[23] = '-'
+	hex.Encode(out[24:36], b[10:16])
+	return string(out[:])
 }
 
 // ULID is a Universal Unique Lexicographically Sortable Identifier.
@@ -108,9 +118,3 @@ func Decode(s string) (int64, error) {
 	return ms, nil
 }
 
-// randUint64 is a helper for UUID (not exported).
-func randUint64() uint64 {
-	var b [8]byte
-	rand.Read(b[:]) //nolint:errcheck
-	return binary.LittleEndian.Uint64(b[:])
-}
