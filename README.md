@@ -2,13 +2,19 @@
 
 Go port of `dynamodb-onetable` (single-table DynamoDB library). API mirrors JS version. Uses AWS SDK v2.
 
-## Install
+## Documentation
+
+Find the complete docs at [Docs Viewer](https://smeltser.dev/docs-viewer-app/?repo=cloudxsgmbh%2Fdynamodb-onetable-go&path=docs%2Foverview.md).
+
+## Quickstart
+
+### Install
 
 ```bash
 go get github.com/cloudxsgmbh/dynamodb-onetable-go
 ```
 
-## Quick start
+### Quick start
 
 ```go
 import (
@@ -37,7 +43,9 @@ user, err := table.Create(context.Background(), "User", ot.Item{
 _ = user
 ```
 
-## Schema
+### Schema
+
+Complete Schema documentation [here](https://smeltser.dev/docs-viewer-app/?repo=cloudxsgmbh%2Fdynamodb-onetable-go&path=docs%2Fschema.md).
 
 ```go
 var MySchema = &ot.SchemaDef{
@@ -71,7 +79,9 @@ var MySchema = &ot.SchemaDef{
 }
 ```
 
-## Common operations
+### Common operations
+
+To work with a specific entity (model), check out the docs [here](https://smeltser.dev/docs-viewer-app/?repo=cloudxsgmbh%2Fdynamodb-onetable-go&path=docs%2Fmodel.md)
 
 ```go
 ctx := context.Background()
@@ -93,7 +103,9 @@ _ = result.Items
 user, _ = table.Get(ctx, "User", ot.Item{"email": "a@b"}, &ot.Params{Index: "gs1"})
 ```
 
-## Batch / Transact
+### Batch / Transact
+
+For more detailed batch and transaction docs, see [here](https://smeltser.dev/docs-viewer-app/?repo=cloudxsgmbh%2Fdynamodb-onetable-go&path=docs%2Ftable.md).
 
 ```go
 batch := map[string]any{}
@@ -106,7 +118,7 @@ _, _ = table.Update(ctx, "User", ot.Item{"id": "01H...", "status": "active"}, &o
 _, _ = table.Transact(ctx, "write", trx, nil)
 ```
 
-## Unique fields
+### Unique fields
 
 ```go
 // Schema field: {Unique: true}
@@ -118,21 +130,17 @@ user, err := table.Create(ctx, "User", ot.Item{
 
 Duplicate unique values return `ErrUnique`.
 
-## Context
+### Context
 
 ```go
 table.SetContext(ot.Item{"accountId": "acc"}, false)
 user, _ := table.Create(ctx, "User", ot.Item{"name": "A", "email": "a@b"}, nil)
 ```
 
-## Tests
+### Tests
 
 All tests run against an in-memory mock (no DynamoDB required).
 
 ```bash
 go test ./...
 ```
-
-## Docs
-
-JS docs apply conceptually: https://doc.onetable.io/ (API names are Go-idiomatic).
