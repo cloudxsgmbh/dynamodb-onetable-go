@@ -154,7 +154,7 @@ type FieldDef struct {
 | `Hidden` | `*bool` | `true` → field is stored in DynamoDB but not returned in read results. Useful for index key attributes. |
 | `Default` | `any` | Default value applied on create if the field is absent. |
 | `Value` | `string` | Value template (see below). The field is computed from other properties; callers should not set it directly. Fields with a `Value` template are **hidden by default** (as if `Hidden: true`) unless `Hidden` is explicitly set to `false`. |
-| `Generate` | `string` | Auto-generate: `"ulid"`, `"uuid"`, `"uid"`, `"uid(n)"`. Applied on create. |
+| `Generate` | `string` | Auto-generate: `"ulid"`, `"uuid"`, `"uid"`, `"uid(n)"`. Applied on create. `uid` defaults to length 10. |
 | `Validate` | `string` | Regex validation pattern, e.g. `"/^\\d+$/"` or `"^\\d+$"`. |
 | `Enum` | `[]string` | Allowed values. Validation error if the value is not in the list. |
 | `Map` | `string` | Maps this Go field name to a different DynamoDB attribute name, or a `"attr.subprop"` path for packed attributes. |
