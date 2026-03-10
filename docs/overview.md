@@ -51,6 +51,19 @@ table, err := onetable.NewTable(onetable.TableParams{
 
 User, err := table.GetModel("User")
 user, err := User.Create(ctx, onetable.Item{"name": "Alice", "email": "alice@example.com"}, nil)
+if err != nil {
+    // handle err
+}
+
+id, _ := user["id"].(string)
+
+// fetch user by id and read email
+alice, err := User.Get(ctx, onetable.Item{"id": id}, nil)
+if err != nil {
+    // handle err
+}
+email, _ := alice["email"].(string)
+_ = email
 ```
 
 ## Documents
