@@ -10,67 +10,67 @@ import (
 // MockDynamoClient is a stubbed DynamoDB client with call tracking.
 type MockDynamoClient struct {
 	GetItemFunc              func(context.Context, *ddb.GetItemInput, ...func(*ddb.Options)) (*ddb.GetItemOutput, error)
-	GetItemCalls             []GetItemCall
+	GetItemCalls             []DynamoGetItemCall
 	GetItemResult            *ddb.GetItemOutput
 	GetItemError             error
 	PutItemFunc              func(context.Context, *ddb.PutItemInput, ...func(*ddb.Options)) (*ddb.PutItemOutput, error)
-	PutItemCalls             []PutItemCall
+	PutItemCalls             []DynamoPutItemCall
 	PutItemResult            *ddb.PutItemOutput
 	PutItemError             error
 	DeleteItemFunc           func(context.Context, *ddb.DeleteItemInput, ...func(*ddb.Options)) (*ddb.DeleteItemOutput, error)
-	DeleteItemCalls          []DeleteItemCall
+	DeleteItemCalls          []DynamoDeleteItemCall
 	DeleteItemResult         *ddb.DeleteItemOutput
 	DeleteItemError          error
 	UpdateItemFunc           func(context.Context, *ddb.UpdateItemInput, ...func(*ddb.Options)) (*ddb.UpdateItemOutput, error)
-	UpdateItemCalls          []UpdateItemCall
+	UpdateItemCalls          []DynamoUpdateItemCall
 	UpdateItemResult         *ddb.UpdateItemOutput
 	UpdateItemError          error
 	QueryFunc                func(context.Context, *ddb.QueryInput, ...func(*ddb.Options)) (*ddb.QueryOutput, error)
-	QueryCalls               []QueryCall
+	QueryCalls               []DynamoQueryCall
 	QueryResult              *ddb.QueryOutput
 	QueryError               error
 	ScanFunc                 func(context.Context, *ddb.ScanInput, ...func(*ddb.Options)) (*ddb.ScanOutput, error)
-	ScanCalls                []ScanCall
+	ScanCalls                []DynamoScanCall
 	ScanResult               *ddb.ScanOutput
 	ScanError                error
 	BatchGetItemFunc         func(context.Context, *ddb.BatchGetItemInput, ...func(*ddb.Options)) (*ddb.BatchGetItemOutput, error)
-	BatchGetItemCalls        []BatchGetItemCall
+	BatchGetItemCalls        []DynamoBatchGetItemCall
 	BatchGetItemResult       *ddb.BatchGetItemOutput
 	BatchGetItemError        error
 	BatchWriteItemFunc       func(context.Context, *ddb.BatchWriteItemInput, ...func(*ddb.Options)) (*ddb.BatchWriteItemOutput, error)
-	BatchWriteItemCalls      []BatchWriteItemCall
+	BatchWriteItemCalls      []DynamoBatchWriteItemCall
 	BatchWriteItemResult     *ddb.BatchWriteItemOutput
 	BatchWriteItemError      error
 	TransactGetItemsFunc     func(context.Context, *ddb.TransactGetItemsInput, ...func(*ddb.Options)) (*ddb.TransactGetItemsOutput, error)
-	TransactGetItemsCalls    []TransactGetItemsCall
+	TransactGetItemsCalls    []DynamoTransactGetItemsCall
 	TransactGetItemsResult   *ddb.TransactGetItemsOutput
 	TransactGetItemsError    error
 	TransactWriteItemsFunc   func(context.Context, *ddb.TransactWriteItemsInput, ...func(*ddb.Options)) (*ddb.TransactWriteItemsOutput, error)
-	TransactWriteItemsCalls  []TransactWriteItemsCall
+	TransactWriteItemsCalls  []DynamoTransactWriteItemsCall
 	TransactWriteItemsResult *ddb.TransactWriteItemsOutput
 	TransactWriteItemsError  error
 	CreateTableFunc          func(context.Context, *ddb.CreateTableInput, ...func(*ddb.Options)) (*ddb.CreateTableOutput, error)
-	CreateTableCalls         []CreateTableCall
+	CreateTableCalls         []DynamoCreateTableCall
 	CreateTableResult        *ddb.CreateTableOutput
 	CreateTableError         error
 	DeleteTableFunc          func(context.Context, *ddb.DeleteTableInput, ...func(*ddb.Options)) (*ddb.DeleteTableOutput, error)
-	DeleteTableCalls         []DeleteTableCall
+	DeleteTableCalls         []DynamoDeleteTableCall
 	DeleteTableResult        *ddb.DeleteTableOutput
 	DeleteTableError         error
 	UpdateTableFunc          func(context.Context, *ddb.UpdateTableInput, ...func(*ddb.Options)) (*ddb.UpdateTableOutput, error)
-	UpdateTableCalls         []UpdateTableCall
+	UpdateTableCalls         []DynamoUpdateTableCall
 	UpdateTableResult        *ddb.UpdateTableOutput
 	UpdateTableError         error
 	DescribeTableFunc        func(context.Context, *ddb.DescribeTableInput, ...func(*ddb.Options)) (*ddb.DescribeTableOutput, error)
-	DescribeTableCalls       []DescribeTableCall
+	DescribeTableCalls       []DynamoDescribeTableCall
 	DescribeTableResult      *ddb.DescribeTableOutput
 	DescribeTableError       error
 	ListTablesFunc           func(context.Context, *ddb.ListTablesInput, ...func(*ddb.Options)) (*ddb.ListTablesOutput, error)
-	ListTablesCalls          []ListTablesCall
+	ListTablesCalls          []DynamoListTablesCall
 	ListTablesResult         *ddb.ListTablesOutput
 	ListTablesError          error
 	UpdateTimeToLiveFunc     func(context.Context, *ddb.UpdateTimeToLiveInput, ...func(*ddb.Options)) (*ddb.UpdateTimeToLiveOutput, error)
-	UpdateTimeToLiveCalls    []UpdateTimeToLiveCall
+	UpdateTimeToLiveCalls    []DynamoUpdateTimeToLiveCall
 	UpdateTimeToLiveResult   *ddb.UpdateTimeToLiveOutput
 	UpdateTimeToLiveError    error
 }
@@ -80,104 +80,104 @@ func NewMockDynamoClient() *MockDynamoClient {
 	return &MockDynamoClient{}
 }
 
-type GetItemCall struct {
+type DynamoGetItemCall struct {
 	Ctx    context.Context
 	Params *ddb.GetItemInput
 	OptFns []func(*ddb.Options)
 }
 
-type PutItemCall struct {
+type DynamoPutItemCall struct {
 	Ctx    context.Context
 	Params *ddb.PutItemInput
 	OptFns []func(*ddb.Options)
 }
 
-type DeleteItemCall struct {
+type DynamoDeleteItemCall struct {
 	Ctx    context.Context
 	Params *ddb.DeleteItemInput
 	OptFns []func(*ddb.Options)
 }
 
-type UpdateItemCall struct {
+type DynamoUpdateItemCall struct {
 	Ctx    context.Context
 	Params *ddb.UpdateItemInput
 	OptFns []func(*ddb.Options)
 }
 
-type QueryCall struct {
+type DynamoQueryCall struct {
 	Ctx    context.Context
 	Params *ddb.QueryInput
 	OptFns []func(*ddb.Options)
 }
 
-type ScanCall struct {
+type DynamoScanCall struct {
 	Ctx    context.Context
 	Params *ddb.ScanInput
 	OptFns []func(*ddb.Options)
 }
 
-type BatchGetItemCall struct {
+type DynamoBatchGetItemCall struct {
 	Ctx    context.Context
 	Params *ddb.BatchGetItemInput
 	OptFns []func(*ddb.Options)
 }
 
-type BatchWriteItemCall struct {
+type DynamoBatchWriteItemCall struct {
 	Ctx    context.Context
 	Params *ddb.BatchWriteItemInput
 	OptFns []func(*ddb.Options)
 }
 
-type TransactGetItemsCall struct {
+type DynamoTransactGetItemsCall struct {
 	Ctx    context.Context
 	Params *ddb.TransactGetItemsInput
 	OptFns []func(*ddb.Options)
 }
 
-type TransactWriteItemsCall struct {
+type DynamoTransactWriteItemsCall struct {
 	Ctx    context.Context
 	Params *ddb.TransactWriteItemsInput
 	OptFns []func(*ddb.Options)
 }
 
-type CreateTableCall struct {
+type DynamoCreateTableCall struct {
 	Ctx    context.Context
 	Params *ddb.CreateTableInput
 	OptFns []func(*ddb.Options)
 }
 
-type DeleteTableCall struct {
+type DynamoDeleteTableCall struct {
 	Ctx    context.Context
 	Params *ddb.DeleteTableInput
 	OptFns []func(*ddb.Options)
 }
 
-type UpdateTableCall struct {
+type DynamoUpdateTableCall struct {
 	Ctx    context.Context
 	Params *ddb.UpdateTableInput
 	OptFns []func(*ddb.Options)
 }
 
-type DescribeTableCall struct {
+type DynamoDescribeTableCall struct {
 	Ctx    context.Context
 	Params *ddb.DescribeTableInput
 	OptFns []func(*ddb.Options)
 }
 
-type ListTablesCall struct {
+type DynamoListTablesCall struct {
 	Ctx    context.Context
 	Params *ddb.ListTablesInput
 	OptFns []func(*ddb.Options)
 }
 
-type UpdateTimeToLiveCall struct {
+type DynamoUpdateTimeToLiveCall struct {
 	Ctx    context.Context
 	Params *ddb.UpdateTimeToLiveInput
 	OptFns []func(*ddb.Options)
 }
 
 func (m *MockDynamoClient) GetItem(ctx context.Context, params *ddb.GetItemInput, optFns ...func(*ddb.Options)) (*ddb.GetItemOutput, error) {
-	m.GetItemCalls = append(m.GetItemCalls, GetItemCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.GetItemCalls = append(m.GetItemCalls, DynamoGetItemCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.GetItemFunc != nil {
 		return m.GetItemFunc(ctx, params, optFns...)
 	}
@@ -185,7 +185,7 @@ func (m *MockDynamoClient) GetItem(ctx context.Context, params *ddb.GetItemInput
 }
 
 func (m *MockDynamoClient) PutItem(ctx context.Context, params *ddb.PutItemInput, optFns ...func(*ddb.Options)) (*ddb.PutItemOutput, error) {
-	m.PutItemCalls = append(m.PutItemCalls, PutItemCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.PutItemCalls = append(m.PutItemCalls, DynamoPutItemCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.PutItemFunc != nil {
 		return m.PutItemFunc(ctx, params, optFns...)
 	}
@@ -193,7 +193,7 @@ func (m *MockDynamoClient) PutItem(ctx context.Context, params *ddb.PutItemInput
 }
 
 func (m *MockDynamoClient) DeleteItem(ctx context.Context, params *ddb.DeleteItemInput, optFns ...func(*ddb.Options)) (*ddb.DeleteItemOutput, error) {
-	m.DeleteItemCalls = append(m.DeleteItemCalls, DeleteItemCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.DeleteItemCalls = append(m.DeleteItemCalls, DynamoDeleteItemCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.DeleteItemFunc != nil {
 		return m.DeleteItemFunc(ctx, params, optFns...)
 	}
@@ -201,7 +201,7 @@ func (m *MockDynamoClient) DeleteItem(ctx context.Context, params *ddb.DeleteIte
 }
 
 func (m *MockDynamoClient) UpdateItem(ctx context.Context, params *ddb.UpdateItemInput, optFns ...func(*ddb.Options)) (*ddb.UpdateItemOutput, error) {
-	m.UpdateItemCalls = append(m.UpdateItemCalls, UpdateItemCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.UpdateItemCalls = append(m.UpdateItemCalls, DynamoUpdateItemCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.UpdateItemFunc != nil {
 		return m.UpdateItemFunc(ctx, params, optFns...)
 	}
@@ -209,7 +209,7 @@ func (m *MockDynamoClient) UpdateItem(ctx context.Context, params *ddb.UpdateIte
 }
 
 func (m *MockDynamoClient) Query(ctx context.Context, params *ddb.QueryInput, optFns ...func(*ddb.Options)) (*ddb.QueryOutput, error) {
-	m.QueryCalls = append(m.QueryCalls, QueryCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.QueryCalls = append(m.QueryCalls, DynamoQueryCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.QueryFunc != nil {
 		return m.QueryFunc(ctx, params, optFns...)
 	}
@@ -217,7 +217,7 @@ func (m *MockDynamoClient) Query(ctx context.Context, params *ddb.QueryInput, op
 }
 
 func (m *MockDynamoClient) Scan(ctx context.Context, params *ddb.ScanInput, optFns ...func(*ddb.Options)) (*ddb.ScanOutput, error) {
-	m.ScanCalls = append(m.ScanCalls, ScanCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.ScanCalls = append(m.ScanCalls, DynamoScanCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.ScanFunc != nil {
 		return m.ScanFunc(ctx, params, optFns...)
 	}
@@ -225,7 +225,7 @@ func (m *MockDynamoClient) Scan(ctx context.Context, params *ddb.ScanInput, optF
 }
 
 func (m *MockDynamoClient) BatchGetItem(ctx context.Context, params *ddb.BatchGetItemInput, optFns ...func(*ddb.Options)) (*ddb.BatchGetItemOutput, error) {
-	m.BatchGetItemCalls = append(m.BatchGetItemCalls, BatchGetItemCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.BatchGetItemCalls = append(m.BatchGetItemCalls, DynamoBatchGetItemCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.BatchGetItemFunc != nil {
 		return m.BatchGetItemFunc(ctx, params, optFns...)
 	}
@@ -233,7 +233,7 @@ func (m *MockDynamoClient) BatchGetItem(ctx context.Context, params *ddb.BatchGe
 }
 
 func (m *MockDynamoClient) BatchWriteItem(ctx context.Context, params *ddb.BatchWriteItemInput, optFns ...func(*ddb.Options)) (*ddb.BatchWriteItemOutput, error) {
-	m.BatchWriteItemCalls = append(m.BatchWriteItemCalls, BatchWriteItemCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.BatchWriteItemCalls = append(m.BatchWriteItemCalls, DynamoBatchWriteItemCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.BatchWriteItemFunc != nil {
 		return m.BatchWriteItemFunc(ctx, params, optFns...)
 	}
@@ -241,7 +241,7 @@ func (m *MockDynamoClient) BatchWriteItem(ctx context.Context, params *ddb.Batch
 }
 
 func (m *MockDynamoClient) TransactGetItems(ctx context.Context, params *ddb.TransactGetItemsInput, optFns ...func(*ddb.Options)) (*ddb.TransactGetItemsOutput, error) {
-	m.TransactGetItemsCalls = append(m.TransactGetItemsCalls, TransactGetItemsCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.TransactGetItemsCalls = append(m.TransactGetItemsCalls, DynamoTransactGetItemsCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.TransactGetItemsFunc != nil {
 		return m.TransactGetItemsFunc(ctx, params, optFns...)
 	}
@@ -249,7 +249,7 @@ func (m *MockDynamoClient) TransactGetItems(ctx context.Context, params *ddb.Tra
 }
 
 func (m *MockDynamoClient) TransactWriteItems(ctx context.Context, params *ddb.TransactWriteItemsInput, optFns ...func(*ddb.Options)) (*ddb.TransactWriteItemsOutput, error) {
-	m.TransactWriteItemsCalls = append(m.TransactWriteItemsCalls, TransactWriteItemsCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.TransactWriteItemsCalls = append(m.TransactWriteItemsCalls, DynamoTransactWriteItemsCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.TransactWriteItemsFunc != nil {
 		return m.TransactWriteItemsFunc(ctx, params, optFns...)
 	}
@@ -257,7 +257,7 @@ func (m *MockDynamoClient) TransactWriteItems(ctx context.Context, params *ddb.T
 }
 
 func (m *MockDynamoClient) CreateTable(ctx context.Context, params *ddb.CreateTableInput, optFns ...func(*ddb.Options)) (*ddb.CreateTableOutput, error) {
-	m.CreateTableCalls = append(m.CreateTableCalls, CreateTableCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.CreateTableCalls = append(m.CreateTableCalls, DynamoCreateTableCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.CreateTableFunc != nil {
 		return m.CreateTableFunc(ctx, params, optFns...)
 	}
@@ -265,7 +265,7 @@ func (m *MockDynamoClient) CreateTable(ctx context.Context, params *ddb.CreateTa
 }
 
 func (m *MockDynamoClient) DeleteTable(ctx context.Context, params *ddb.DeleteTableInput, optFns ...func(*ddb.Options)) (*ddb.DeleteTableOutput, error) {
-	m.DeleteTableCalls = append(m.DeleteTableCalls, DeleteTableCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.DeleteTableCalls = append(m.DeleteTableCalls, DynamoDeleteTableCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.DeleteTableFunc != nil {
 		return m.DeleteTableFunc(ctx, params, optFns...)
 	}
@@ -273,7 +273,7 @@ func (m *MockDynamoClient) DeleteTable(ctx context.Context, params *ddb.DeleteTa
 }
 
 func (m *MockDynamoClient) UpdateTable(ctx context.Context, params *ddb.UpdateTableInput, optFns ...func(*ddb.Options)) (*ddb.UpdateTableOutput, error) {
-	m.UpdateTableCalls = append(m.UpdateTableCalls, UpdateTableCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.UpdateTableCalls = append(m.UpdateTableCalls, DynamoUpdateTableCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.UpdateTableFunc != nil {
 		return m.UpdateTableFunc(ctx, params, optFns...)
 	}
@@ -281,7 +281,7 @@ func (m *MockDynamoClient) UpdateTable(ctx context.Context, params *ddb.UpdateTa
 }
 
 func (m *MockDynamoClient) DescribeTable(ctx context.Context, params *ddb.DescribeTableInput, optFns ...func(*ddb.Options)) (*ddb.DescribeTableOutput, error) {
-	m.DescribeTableCalls = append(m.DescribeTableCalls, DescribeTableCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.DescribeTableCalls = append(m.DescribeTableCalls, DynamoDescribeTableCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.DescribeTableFunc != nil {
 		return m.DescribeTableFunc(ctx, params, optFns...)
 	}
@@ -289,7 +289,7 @@ func (m *MockDynamoClient) DescribeTable(ctx context.Context, params *ddb.Descri
 }
 
 func (m *MockDynamoClient) ListTables(ctx context.Context, params *ddb.ListTablesInput, optFns ...func(*ddb.Options)) (*ddb.ListTablesOutput, error) {
-	m.ListTablesCalls = append(m.ListTablesCalls, ListTablesCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.ListTablesCalls = append(m.ListTablesCalls, DynamoListTablesCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.ListTablesFunc != nil {
 		return m.ListTablesFunc(ctx, params, optFns...)
 	}
@@ -297,7 +297,7 @@ func (m *MockDynamoClient) ListTables(ctx context.Context, params *ddb.ListTable
 }
 
 func (m *MockDynamoClient) UpdateTimeToLive(ctx context.Context, params *ddb.UpdateTimeToLiveInput, optFns ...func(*ddb.Options)) (*ddb.UpdateTimeToLiveOutput, error) {
-	m.UpdateTimeToLiveCalls = append(m.UpdateTimeToLiveCalls, UpdateTimeToLiveCall{Ctx: ctx, Params: params, OptFns: optFns})
+	m.UpdateTimeToLiveCalls = append(m.UpdateTimeToLiveCalls, DynamoUpdateTimeToLiveCall{Ctx: ctx, Params: params, OptFns: optFns})
 	if m.UpdateTimeToLiveFunc != nil {
 		return m.UpdateTimeToLiveFunc(ctx, params, optFns...)
 	}
