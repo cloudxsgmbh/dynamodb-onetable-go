@@ -108,7 +108,7 @@ type modelOptions struct {
 	Fields     FieldMap
 	TypeField  string
 	Generic    bool
-	Timestamps any              // override table timestamps
+	Timestamps any                  // override table timestamps
 	Indexes    map[string]*IndexDef // if non-nil, overrides table.schemaMgr.indexes
 }
 
@@ -132,12 +132,12 @@ func (m *Model) getSchemaMgr() *schemaManager {
 // Params holds optional operation modifiers (mirrors JS params objects).
 type Params struct {
 	// Execution control
-	Execute  *bool  // false → return command, don't execute
-	Log      *bool  // true → log at info level
-	Parse    bool   // unmarshal DynamoDB response into Item map
-	High     bool   // high-level API mode (adds type filter, etc.)
-	Hidden   *bool  // override hidden field visibility
-	Partial  *bool  // override partial nested-update behaviour
+	Execute *bool // false → return command, don't execute
+	Log     *bool // true → log at info level
+	Parse   bool  // unmarshal DynamoDB response into Item map
+	High    bool  // high-level API mode (adds type filter, etc.)
+	Hidden  *bool // override hidden field visibility
+	Partial *bool // override partial nested-update behaviour
 
 	// Condition / exists
 	Exists *bool // true=must exist, false=must not exist, nil=don't care
@@ -196,7 +196,7 @@ type Params struct {
 	checked      bool
 	prepared     bool
 	fallback     bool
-	existsWasSet bool  // true when Exists was explicitly set by caller (even to nil)
+	existsWasSet bool        // true when Exists was explicitly set by caller (even to nil)
 	expression   *expression // stored during transact/batch for later parseResponse
 
 	// Custom post-format hook
@@ -803,7 +803,7 @@ func (m *Model) transformReadBlock(op string, raw Item, properties Item, params 
 		}
 
 		// nested block
-		if field.Block != nil && value != nil {
+		if field.Block != nil {
 			switch v := value.(type) {
 			case []any:
 				arr := make([]Item, 0, len(v))
@@ -2009,6 +2009,7 @@ func (m *Model) selectIndex(params *Params) *IndexDef {
 		if idx, ok := m.indexes[params.Index]; ok {
 			return idx
 		}
+		panic(NewError(fmt.Sprintf("Cannot find index %s", params.Index), WithCode(ErrMissing)))
 	}
 	return m.indexes["primary"]
 }
