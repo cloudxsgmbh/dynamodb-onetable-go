@@ -145,6 +145,22 @@ type FieldDef struct {
 | `"binary"` | B |
 | `"arraybuffer"` | B |
 
+### Using `Type: "set"`
+
+Use `Type: "set"` for DynamoDB sets. The stored DynamoDB set kind is inferred from values:
+
+- string values -> `SS`
+- number values -> `NS`
+
+Example:
+
+```go
+"tags":   {Type: "set"},   // string set
+"scores": {Type: "set"},   // number set
+```
+
+Write values as slices (for example `[]string{"a", "b"}` or `[]int{1, 2}`), not maps.
+
 ### Field properties
 
 | Property | Type | Description |
