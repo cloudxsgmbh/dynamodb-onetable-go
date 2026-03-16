@@ -21,7 +21,17 @@ go test ./...
 // Table
 NewTable(TableParams{ Name, Client, Schema, ... })
 
-// CRUD
+// Model (preferred)
+model, _ := table.GetModel("User")
+model.Create(ctx, Item, *Params)
+model.Get(ctx, Item, *Params)
+model.Update(ctx, Item, *Params)
+model.Upsert(ctx, Item, *Params)
+model.Remove(ctx, Item, *Params)
+model.Find(ctx, Item, *Params)
+model.Scan(ctx, Item, *Params)
+
+// Table (low-level)
 Table.Create(ctx, modelName, Item, *Params)
 Table.Get(ctx, modelName, Item, *Params)
 Table.Update(ctx, modelName, Item, *Params)
