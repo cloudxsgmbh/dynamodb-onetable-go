@@ -69,6 +69,18 @@ Supply the key attributes (or the fields from which the key can be derived via v
 user, err := User.Get(ctx, onetable.Item{"id": "01ABCDEF"}, nil)
 ```
 
+**Set / list attributes** are returned as `[]any` in the raw `Item`. Convert to a typed slice:
+
+```go
+recipientsAny := user["recipients"].([]any)
+recipients := make([]string, 0, len(recipientsAny))
+for _, v := range recipientsAny {
+    if s, ok := v.(string); ok {
+        recipients = append(recipients, s)
+    }
+}
+```
+
 If additional non-key properties are supplied, a `Find` is executed first to locate the item (fallback path). If the `Find` returns more than one result, `ErrNonUnique` is returned.
 
 Returns `nil, nil` when the item does not exist (no error).
