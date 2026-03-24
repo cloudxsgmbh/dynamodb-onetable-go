@@ -3,8 +3,8 @@ module github.com/cloudxsgmbh/dynamodb-onetable-go
 go 1.25.6
 
 require (
-	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.35
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.56.2
+	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.36
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.0
 )
 
 require (
