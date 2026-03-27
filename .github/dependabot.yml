@@ -12,6 +12,8 @@ updates:
       day: "tuesday"
       time: "02:00"
       timezone: "Europe/Zurich"
+    cooldown:
+      default-days: 14
     groups:
       # Specify a name for the group, which will be used in pull request titles
       # and branch names
