@@ -1,4 +1,5 @@
 # OneTable (Go)
+![Go Report](https://img.shields.io/badge/go%20report-A-green.svg?style=flat)
 
 Go port of `dynamodb-onetable` (single-table DynamoDB library). API mirrors JS version. Uses AWS SDK v2.
 
