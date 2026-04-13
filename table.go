@@ -237,26 +237,32 @@ func (t *Table) SetSchema(ctx context.Context, schema *SchemaDef) (map[string]*I
 	return t.schemaMgr.SetSchema(ctx, schema)
 }
 
+// GetCurrentSchema returns the active schema definition.
 func (t *Table) GetCurrentSchema() *SchemaDef {
 	return t.schemaMgr.GetCurrentSchema()
 }
 
+// GetKeys returns index definitions discovered from DynamoDB.
 func (t *Table) GetKeys(ctx context.Context) (map[string]*IndexDef, error) {
 	return t.schemaMgr.GetKeys(ctx, false)
 }
 
+// GetModel returns a registered model by name.
 func (t *Table) GetModel(name string) (*Model, error) {
 	return t.schemaMgr.GetModel(name, false)
 }
 
+// AddModel registers a new model definition.
 func (t *Table) AddModel(name string, fields FieldMap) {
 	t.schemaMgr.AddModel(name, fields)
 }
 
+// RemoveModel deletes a model definition.
 func (t *Table) RemoveModel(name string) error {
 	return t.schemaMgr.RemoveModel(name)
 }
 
+// ListModels returns registered model names.
 func (t *Table) ListModels() []string {
 	return t.schemaMgr.ListModels()
 }
@@ -301,8 +307,10 @@ func (t *Table) RemoveSchema(ctx context.Context, schema *SchemaDef) error {
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
+// GetContext returns the table context.
 func (t *Table) GetContext() Item { return t.context }
 
+// SetContext sets table context; merge merges keys into current context.
 func (t *Table) SetContext(ctx Item, merge bool) *Table {
 	if merge {
 		for k, v := range ctx {
@@ -314,6 +322,7 @@ func (t *Table) SetContext(ctx Item, merge bool) *Table {
 	return t
 }
 
+// AddContext merges keys into the table context.
 func (t *Table) AddContext(ctx Item) *Table {
 	for k, v := range ctx {
 		t.context[k] = v
@@ -321,6 +330,7 @@ func (t *Table) AddContext(ctx Item) *Table {
 	return t
 }
 
+// ClearContext removes all context values.
 func (t *Table) ClearContext() *Table {
 	t.context = Item{}
 	return t
@@ -328,6 +338,7 @@ func (t *Table) ClearContext() *Table {
 
 // ─── High-level model-factory API ────────────────────────────────────────────
 
+// Create inserts a new item for the model.
 func (t *Table) Create(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -336,6 +347,7 @@ func (t *Table) Create(ctx context.Context, modelName string, properties Item, p
 	return m.Create(ctx, properties, params)
 }
 
+// Find queries a model by properties.
 func (t *Table) Find(ctx context.Context, modelName string, properties Item, params *Params) (*Result, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -344,6 +356,7 @@ func (t *Table) Find(ctx context.Context, modelName string, properties Item, par
 	return m.Find(ctx, properties, params)
 }
 
+// Get fetches a single model item.
 func (t *Table) Get(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -352,6 +365,7 @@ func (t *Table) Get(ctx context.Context, modelName string, properties Item, para
 	return m.Get(ctx, properties, params)
 }
 
+// Remove deletes a model item.
 func (t *Table) Remove(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -360,6 +374,7 @@ func (t *Table) Remove(ctx context.Context, modelName string, properties Item, p
 	return m.Remove(ctx, properties, params)
 }
 
+// Scan scans a model with optional filters.
 func (t *Table) Scan(ctx context.Context, modelName string, properties Item, params *Params) (*Result, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -368,6 +383,7 @@ func (t *Table) Scan(ctx context.Context, modelName string, properties Item, par
 	return m.Scan(ctx, properties, params)
 }
 
+// Update updates a model item.
 func (t *Table) Update(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -376,6 +392,7 @@ func (t *Table) Update(ctx context.Context, modelName string, properties Item, p
 	return m.Update(ctx, properties, params)
 }
 
+// Upsert updates or creates a model item.
 func (t *Table) Upsert(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -386,32 +403,39 @@ func (t *Table) Upsert(ctx context.Context, modelName string, properties Item, p
 
 // ─── Low-level item API (mirrors JS table.getItem / putItem etc.) ─────────────
 
+// GetItem reads a raw item (generic model).
 func (t *Table) GetItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.getItem(ctx, properties, params)
 }
 
+// PutItem writes a raw item (generic model).
 func (t *Table) PutItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.putItem(ctx, properties, params)
 }
 
+// DeleteItem deletes a raw item (generic model).
 func (t *Table) DeleteItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.deleteItem(ctx, properties, params)
 }
 
+// QueryItems queries raw items (generic model).
 func (t *Table) QueryItems(ctx context.Context, properties Item, params *Params) (*Result, error) {
 	return t.schemaMgr.genericModel.queryItems(ctx, properties, params)
 }
 
+// ScanItems scans raw items (generic model).
 func (t *Table) ScanItems(ctx context.Context, properties Item, params *Params) (*Result, error) {
 	return t.schemaMgr.genericModel.scanItems(ctx, properties, params)
 }
 
+// UpdateItem updates a raw item (generic model).
 func (t *Table) UpdateItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.updateItem(ctx, properties, params)
 }
 
 // ─── Batch operations ─────────────────────────────────────────────────────────
 
+// BatchGet executes a BatchGetItem request.
 func (t *Table) BatchGet(ctx context.Context, batch map[string]any, params *Params) (any, error) {
 	if len(batch) == 0 {
 		return []Item{}, nil
@@ -493,6 +517,7 @@ func (t *Table) BatchGet(ctx context.Context, batch map[string]any, params *Para
 	return result, nil
 }
 
+// BatchWrite executes a BatchWriteItem request.
 func (t *Table) BatchWrite(ctx context.Context, batch map[string]any, params *Params) (bool, error) {
 	if len(batch) == 0 {
 		return true, nil
@@ -524,6 +549,7 @@ func (t *Table) BatchWrite(ctx context.Context, batch map[string]any, params *Pa
 
 // ─── Transact ─────────────────────────────────────────────────────────────────
 
+// Transact executes a transaction (write/get).
 func (t *Table) Transact(ctx context.Context, op string, transaction map[string]any, params *Params) (any, error) {
 	if params == nil {
 		params = &Params{}
@@ -569,6 +595,7 @@ func (t *Table) Transact(ctx context.Context, op string, transaction map[string]
 
 // ─── GroupByType ──────────────────────────────────────────────────────────────
 
+// GroupByType groups items by type field.
 func (t *Table) GroupByType(items []Item, params *Params) map[string][]Item {
 	if params == nil {
 		params = &Params{}
@@ -720,6 +747,7 @@ type TableDefinition struct {
 	ProvisionedThroughput  *types.ProvisionedThroughput
 }
 
+// GetTableDefinition builds a DynamoDB table definition.
 func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *TableDefinition {
 	def := &TableDefinition{}
 	switch {
@@ -794,6 +822,7 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 				AttributeName: strPtr(idx.Sort),
 				KeyType:       types.KeyTypeRange,
 			})
+			_ = keys
 			if !attributes[idx.Sort] {
 				at := types.ScalarAttributeTypeS
 				if t.getAttributeType(idx.Sort) == "number" {
@@ -1381,14 +1410,17 @@ func (t *Table) generate(gen string) any {
 	}
 }
 
+// UUID returns a UUID string.
 func (t *Table) UUID() string {
 	return uid.UUID()
 }
 
+// ULID returns a ULID string.
 func (t *Table) ULID() string {
 	return ulid.New().String()
 }
 
+// UID returns a random UID string of size.
 func (t *Table) UID(size int) string {
 	return uid.UID(size)
 }
@@ -1646,20 +1678,6 @@ func toAnySlice(v any) []any {
 // These convert the generic Item command maps (which hold types.AttributeValue
 // values directly) into properly-typed AWS SDK inputs without JSON round-trips.
 
-func extractAVMap(m map[string]any, key string) map[string]types.AttributeValue {
-	v, _ := m[key].(map[string]types.AttributeValue)
-	return v
-}
-
-func extractAVMapItem(m map[string]any, key string) map[string]types.AttributeValue {
-	return extractAVMap(m, key)
-}
-
-func extractString(m map[string]any, key string) string {
-	s, _ := m[key].(string)
-	return s
-}
-
 func extractStringPtr(m map[string]any, key string) *string {
 	s, ok := m[key].(string)
 	if !ok || s == "" {
@@ -1677,9 +1695,6 @@ func extractAVMapValues(m map[string]any, key string) map[string]types.Attribute
 	v, _ := m[key].(map[string]types.AttributeValue)
 	return v
 }
-
-// cmdToMap converts an Item to map[string]any (they are the same type but help readability).
-func cmdToMap(cmd Item) map[string]any { return map[string]any(cmd) }
 
 // buildTransactWriteInput builds a TransactWriteItemsInput from the generic transaction map.
 // The transaction map has the shape: {"TransactItems": [{"Put": cmd}, {"Update": cmd}, ...]}
