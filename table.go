@@ -160,11 +160,12 @@ func NewTable(params TableParams) (*Table, error) {
 	}
 
 	// logging
-	if params.Logger != nil {
+	switch {
+	case params.Logger != nil:
 		t.log = params.Logger
-	} else if params.Verbose {
+	case params.Verbose:
 		t.log = verboseLogger{}
-	} else {
+	default:
 		t.log = defaultLogger{}
 	}
 
@@ -720,14 +721,15 @@ type TableDefinition struct {
 
 func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *TableDefinition {
 	def := &TableDefinition{}
-	if provisioned != nil &&
+	switch {
+	case provisioned != nil &&
 		(provisioned.ReadCapacityUnits == nil || *provisioned.ReadCapacityUnits == 0) &&
-		(provisioned.WriteCapacityUnits == nil || *provisioned.WriteCapacityUnits == 0) {
+		(provisioned.WriteCapacityUnits == nil || *provisioned.WriteCapacityUnits == 0):
 		def.BillingMode = types.BillingModePayPerRequest
-	} else if provisioned != nil {
+	case provisioned != nil:
 		def.BillingMode = types.BillingModeProvisioned
 		def.ProvisionedThroughput = provisioned
-	} else {
+	default:
 		def.BillingMode = types.BillingModePayPerRequest
 	}
 
@@ -1369,7 +1371,9 @@ func (t *Table) generate(gen string) any {
 	default:
 		if strings.HasPrefix(gen, "uid(") {
 			n := 10
-			fmt.Sscanf(gen, "uid(%d)", &n)
+			if _, err := fmt.Sscanf(gen, "uid(%d)", &n); err != nil {
+				return t.UID(n)
+			}
 			return t.UID(n)
 		}
 		return t.UUID()
@@ -1642,11 +1646,8 @@ func toAnySlice(v any) []any {
 // values directly) into properly-typed AWS SDK inputs without JSON round-trips.
 
 func extractAVMap(m map[string]any, key string) map[string]types.AttributeValue {
-	switch v := m[key].(type) {
-	case map[string]types.AttributeValue:
-		return v
-	}
-	return nil
+	v, _ := m[key].(map[string]types.AttributeValue)
+	return v
 }
 
 func extractAVMapItem(m map[string]any, key string) map[string]types.AttributeValue {
@@ -1806,8 +1807,8 @@ func buildBatchGetInput(cmd Item) (*ddb.BatchGetItemInput, error) {
 		ka := types.KeysAndAttributes{}
 		if keys, ok := entry["Keys"].([]any); ok {
 			for _, k := range keys {
-				switch kv := k.(type) {
-				case map[string]types.AttributeValue:
+				kv, ok := k.(map[string]types.AttributeValue)
+				if ok {
 					ka.Keys = append(ka.Keys, kv)
 				}
 			}

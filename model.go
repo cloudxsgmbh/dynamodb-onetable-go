@@ -886,6 +886,8 @@ func (m *Model) transformReadAttribute(field *preparedField, name string, value 
 		if s, ok := value.(string); ok {
 			return []byte(s) // base64 decoded by attributevalue library
 		}
+	case FieldTypeArray, FieldTypeBoolean, FieldTypeNumber, FieldTypeObject, FieldTypeSet, FieldTypeString:
+		return value
 	}
 	return value
 }
@@ -1138,9 +1140,7 @@ func (m *Model) runTemplate(op string, index *IndexDef, field *preparedField, pr
 	if strings.Contains(result, "${") {
 		if index != nil && field.Attribute[0] == index.Sort && op == "find" {
 			// strip from first unresolved ${ onward, use prefix for begins_with
-			idx := strings.Index(result, "${")
-			prefix := result[:idx]
-			if prefix != "" {
+			if prefix, _, ok := strings.Cut(result, "${"); ok && prefix != "" {
 				return map[string]any{"begins": prefix}, nil
 			}
 		}
@@ -1273,13 +1273,14 @@ func (m *Model) selectProperties(op string, block *fieldBlock, index *IndexDef, 
 				return
 			}
 
-			if keysOnlyOp(op) && att != index.Hash && att != index.Sort && !m.hasUniqueFields {
+			switch {
+			case keysOnlyOp(op) && att != index.Hash && att != index.Sort && !m.hasUniqueFields:
 				omit = true
-			} else if project != nil && !containsStr(project, att) {
+			case project != nil && !containsStr(project, att):
 				omit = true
-			} else if name == m.typeField && name != index.Hash && name != index.Sort && op == "find" {
+			case name == m.typeField && name != index.Hash && name != index.Sort && op == "find":
 				omit = true
-			} else if field.Def.Encode != nil {
+			case field.Def.Encode != nil:
 				omit = true
 			}
 		}
@@ -1312,7 +1313,7 @@ func (m *Model) getProjection(index *IndexDef) []string {
 		}
 	case []string:
 		primary := m.indexes["primary"]
-		all := append(p, primary.Hash, primary.Sort, index.Hash, index.Sort)
+		all := append(append([]string{}, p...), primary.Hash, primary.Sort, index.Hash, index.Sort)
 		return unique(all)
 	case []any:
 		strs := make([]string, 0, len(p))
@@ -1322,7 +1323,7 @@ func (m *Model) getProjection(index *IndexDef) []string {
 			}
 		}
 		primary := m.indexes["primary"]
-		all := append(strs, primary.Hash, primary.Sort, index.Hash, index.Sort)
+		all := append(append([]string{}, strs...), primary.Hash, primary.Sort, index.Hash, index.Sort)
 		return unique(all)
 	}
 	return nil
@@ -1418,6 +1419,8 @@ func (m *Model) transformWriteAttribute(op string, field *preparedField, value a
 				return m.transformNestedWriteFieldsMap(field, obj)
 			}
 		}
+	case FieldTypeSet:
+		return value
 	}
 
 	if field.Def.Crypt && value != nil {
@@ -1845,17 +1848,16 @@ func (m *Model) followItems(ctx context.Context, op string, items []Item, params
 	errs := make(chan error, len(items))
 	out := make([]Item, len(items))
 	for i, item := range items {
-		i, item := i, item
 		sem <- struct{}{}
-		go func() {
+		go func(idx int, it Item) {
 			defer func() { <-sem }()
-			got, err := m.Get(ctx, item, &p2)
+			got, err := m.Get(ctx, it, &p2)
 			if err != nil {
 				errs <- err
 				return
 			}
-			out[i] = got
-		}()
+			out[idx] = got
+		}(i, item)
 	}
 	for i := 0; i < cap(sem); i++ {
 		sem <- struct{}{}
