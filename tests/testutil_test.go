@@ -429,7 +429,7 @@ func (m *fullMock) UpdateItem(_ context.Context, p *ddb.UpdateItemInput, _ ...fu
 	// check condition
 	cond := deref(p.ConditionExpression)
 	if cond != "" && !conditionPasses(existing, cond, p.ExpressionAttributeNames, p.ExpressionAttributeValues) {
-		return nil, fmt.Errorf("ConditionalCheckFailedException: condition not met for update")
+		return nil, errors.New("ConditionalCheckFailedException: condition not met for update")
 	}
 	// merge key back
 	for kk, vv := range p.Key {
@@ -446,7 +446,7 @@ func (m *fullMock) UpdateItem(_ context.Context, p *ddb.UpdateItemInput, _ ...fu
 func (m *fullMock) Query(_ context.Context, p *ddb.QueryInput, _ ...func(*ddb.Options)) (*ddb.QueryOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var all []map[string]types.AttributeValue
+	all := make([]map[string]types.AttributeValue, 0, len(m.tbl(deref(p.TableName))))
 	for _, v := range m.tbl(deref(p.TableName)) {
 		all = append(all, v)
 	}
@@ -469,7 +469,7 @@ func (m *fullMock) Query(_ context.Context, p *ddb.QueryInput, _ ...func(*ddb.Op
 func (m *fullMock) Scan(_ context.Context, p *ddb.ScanInput, _ ...func(*ddb.Options)) (*ddb.ScanOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var all []map[string]types.AttributeValue
+	all := make([]map[string]types.AttributeValue, 0, len(m.tbl(deref(p.TableName))))
 	for _, v := range m.tbl(deref(p.TableName)) {
 		all = append(all, v)
 	}
@@ -993,5 +993,12 @@ func assertErrCode(t *testing.T, err error, code ot.ErrorCode) {
 
 func bg() context.Context { return context.Background() }
 
-// boolPtr returns a pointer to a bool.
-func boolPtr(b bool) *bool { return &b }
+func truePtr() *bool {
+	b := true
+	return &b
+}
+
+func falsePtr() *bool {
+	b := false
+	return &b
+}

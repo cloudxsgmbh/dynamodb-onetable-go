@@ -93,7 +93,7 @@ func TestPartial_UpdateFullReplace(t *testing.T) {
 	_, err := tbl.Update(bg(), "User", ot.Item{
 		"id":      user["id"],
 		"address": map[string]any{"zip": float64(22222)},
-	}, &ot.Params{Partial: boolPtr(false)})
+	}, &ot.Params{Partial: falsePtr()})
 	if err != nil {
 		t.Fatalf("Update full replace: %v", err)
 	}

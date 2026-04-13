@@ -87,7 +87,7 @@ func TestCRUD_GetHidden(t *testing.T) {
 	tbl, _ := makeTable(t, "CrudTable", DefaultSchema, false)
 	user, _ := tbl.Create(bg(), "User", ot.Item{"name": "Peter Smith", "status": "active"}, nil)
 
-	got, err := tbl.Get(bg(), "User", ot.Item{"id": user["id"]}, &ot.Params{Hidden: boolPtr(true)})
+	got, err := tbl.Get(bg(), "User", ot.Item{"id": user["id"]}, &ot.Params{Hidden: truePtr()})
 	if err != nil {
 		t.Fatalf("Get hidden: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestCRUD_ScanHidden(t *testing.T) {
 		tbl.Create(bg(), "User", d, nil) //nolint
 	}
 
-	result, err := tbl.Scan(bg(), "User", ot.Item{}, &ot.Params{Hidden: boolPtr(true)})
+	result, err := tbl.Scan(bg(), "User", ot.Item{}, &ot.Params{Hidden: truePtr()})
 	if err != nil {
 		t.Fatalf("Scan hidden: %v", err)
 	}
