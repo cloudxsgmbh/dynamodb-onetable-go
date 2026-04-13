@@ -26,6 +26,9 @@ linters:
     - path: _test\.go
       linters:
         - errcheck
+    - path: mocks
+      linters:
+        - revive
   settings:
     revive:
       rules:
