@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
@@ -25,8 +24,7 @@ import (
 // ─── regexps ─────────────────────────────────────────────────────────────────
 
 var (
-	reULID  = regexp.MustCompile(`^[0-9A-Z]{26}$`)
-	reEmail = regexp.MustCompile(`^[^@]+@[^@]+\.[^@]+$`)
+	reULID = regexp.MustCompile(`^[0-9A-Z]{26}$`)
 )
 
 // ─── mock helpers ─────────────────────────────────────────────────────────────
@@ -287,9 +285,10 @@ func evalFilter(
 func balanced(s string) bool {
 	depth := 0
 	for _, c := range s {
-		if c == '(' {
+		switch c {
+		case '(':
 			depth++
-		} else if c == ')' {
+		case ')':
 			depth--
 			if depth < 0 {
 				return false
@@ -340,8 +339,7 @@ func conditionPasses(
 	return evalFilter(item, condExpr, names, v)
 }
 
-func isULID(s string) bool  { return reULID.MatchString(s) }
-func isEmail(s string) bool { return reEmail.MatchString(s) }
+func isULID(s string) bool { return reULID.MatchString(s) }
 
 // ─── fullMock ─────────────────────────────────────────────────────────────────
 
@@ -950,13 +948,6 @@ func assertPresent(t *testing.T, item ot.Item, key string) {
 	}
 }
 
-func assertNil(t *testing.T, item ot.Item) {
-	t.Helper()
-	if item != nil {
-		t.Errorf("expected nil item, got %v", item)
-	}
-}
-
 // toAnySlice converts []any, []map[string]any etc. to []any.
 func toAnySlice(v any) []any {
 	switch s := v.(type) {
@@ -1001,14 +992,6 @@ func assertErrCode(t *testing.T, err error, code ot.ErrorCode) {
 }
 
 func bg() context.Context { return context.Background() }
-
-// storeRaw marshals a plain Item and stores it in the mock at the given table.
-func storeRaw(mock *fullMock, table string, item ot.Item) {
-	av, _ := attributevalue.MarshalMap(item)
-	mock.mu.Lock()
-	mock.tbl(table)[itemKey(av)] = av
-	mock.mu.Unlock()
-}
 
 // boolPtr returns a pointer to a bool.
 func boolPtr(b bool) *bool { return &b }

@@ -114,9 +114,10 @@ func (m *Model) prepModel(schemaFields FieldMap, block *fieldBlock, parent *prep
 				if idxName == "primary" {
 					pf.IsPrimary = true
 					pf.Required = true
-					if att == primary.Hash {
+					switch att {
+					case primary.Hash:
 						m.hash = att
-					} else if att == primary.Sort {
+					case primary.Sort:
 						m.sort = att
 					}
 				}

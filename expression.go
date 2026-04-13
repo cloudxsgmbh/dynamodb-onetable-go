@@ -336,7 +336,7 @@ func (e *expression) addUpdate(field *preparedField, path string, value any) {
 		return
 	}
 	if field.Name == e.model.typeField {
-		if !(e.params.Exists == nil || (e.params.Exists != nil && !*e.params.Exists)) {
+		if e.params.Exists != nil && *e.params.Exists {
 			return
 		}
 	}
@@ -710,7 +710,7 @@ func (e *expression) command() (Item, error) {
 		// ScanIndexForward: reverse XOR prev-without-next
 		reverse := params.Reverse
 		prevMode := params.Prev != nil && params.Next == nil
-		args["ScanIndexForward"] = !(reverse != prevMode) // XOR
+		args["ScanIndexForward"] = reverse == prevMode
 
 		cursor := params.Next
 		if cursor == nil {

@@ -137,7 +137,7 @@ type Params struct {
 	Parse   bool  // unmarshal DynamoDB response into Item map
 	High    bool  // high-level API mode (adds type filter, etc.)
 	Hidden  *bool // override hidden field visibility
-	Partial *bool // override partial nested-update behaviour
+	Partial *bool // override partial nested-update behavior
 
 	// Condition / exists
 	Exists *bool // true=must exist, false=must not exist, nil=don't care
@@ -193,11 +193,10 @@ type Params struct {
 	Many bool
 
 	// Internal: mark already-cloned args
-	checked      bool
-	prepared     bool
-	fallback     bool
-	existsWasSet bool        // true when Exists was explicitly set by caller (even to nil)
-	expression   *expression // stored during transact/batch for later parseResponse
+	checked    bool
+	prepared   bool
+	fallback   bool
+	expression *expression // stored during transact/batch for later parseResponse
 
 	// Custom post-format hook
 	PostFormat func(model *Model, cmd map[string]any) map[string]any
@@ -338,7 +337,7 @@ func (m *Model) Remove(ctx context.Context, properties Item, params *Params) (It
 	return item, nil
 }
 
-// Init initialises a local item with defaults and value templates without writing to DynamoDB.
+// Init initializes a local item with defaults and value templates without writing to DynamoDB.
 func (m *Model) Init(ctx context.Context, properties Item, params *Params) (Item, error) {
 	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true})
 	return m.initItem(ctx, properties, params)
@@ -505,7 +504,7 @@ func (m *Model) run(ctx context.Context, op string, expr *expression) (Item, err
 	}
 
 	// return command without executing
-	if expr.execute == false {
+	if !expr.execute {
 		logInfo(m.table.log, fmt.Sprintf(`OneTable command for "%s" "%s" (not executed)`, op, m.Name),
 			map[string]any{"cmd": cmd, "op": op})
 		return cmd, nil
@@ -565,7 +564,7 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 		return nil, err
 	}
 
-	if expr.execute == false {
+	if !expr.execute {
 		return &Result{Items: []Item{cmd}}, nil
 	}
 
@@ -600,8 +599,8 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 			if s := toInt(result["ScannedCount"]); s > 0 {
 				params.Stats.Scanned += s
 			}
-			if cap, ok := result["ConsumedCapacity"].(map[string]any); ok {
-				if u, ok := cap["CapacityUnits"].(float64); ok {
+			if consumed, ok := result["ConsumedCapacity"].(map[string]any); ok {
+				if u, ok := consumed["CapacityUnits"].(float64); ok {
 					params.Stats.Capacity += u
 				}
 			}
@@ -689,10 +688,8 @@ func (m *Model) parseResponse(ctx context.Context, op string, expr *expression, 
 	// put doesn't return the item from DynamoDB – use expression properties (already Go-typed)
 	if op == "put" {
 		raw = []Item{expr.properties}
-		// raw is already plain Go values; skip unmarshalling below
-	} else {
-		// raw is already unmarshalled by execute() – no extra conversion needed
 	}
+	// raw is already unmarshalled by execute() – no extra conversion needed
 
 	for _, item := range raw {
 		typeName, _ := item[m.typeField].(string)
@@ -733,7 +730,7 @@ func (m *Model) transformReadBlock(op string, raw Item, properties Item, params 
 			if params == nil || params.Follow == nil || !*params.Follow {
 				if params == nil || params.Hidden == nil || !*params.Hidden {
 					// skip hidden unless explicitly requested
-					if !(params != nil && params.Hidden != nil && *params.Hidden) {
+					if params == nil || params.Hidden == nil || !*params.Hidden {
 						continue
 					}
 				}
@@ -931,9 +928,6 @@ func (m *Model) collectProperties(ctx context.Context, op, pathname string, bloc
 	rec := Item{}
 
 	if context == nil {
-		if params.Context != nil {
-			// params.Context is set via WithContext but not used here (it's the Go context)
-		}
 		context = m.table.context
 	}
 
@@ -967,7 +961,7 @@ func (m *Model) collectNested(ctx context.Context, op, pathname string, fields m
 			continue
 		}
 		name := field.Name
-		value, _ := properties[name]
+		value := properties[name]
 		if op == "put" && value == nil {
 			if field.Required {
 				if field.Type == FieldTypeArray {
@@ -1042,7 +1036,7 @@ func (m *Model) addContext(op string, fields map[string]*preparedField, index *I
 
 // setDefaults sets default values for put/init or upsert.
 func (m *Model) setDefaults(op string, fields map[string]*preparedField, properties Item, params *Params) {
-	if op != "put" && op != "init" && !(op == "update" && params != nil && params.Exists == nil) {
+	if op != "put" && op != "init" && (op != "update" || params == nil || params.Exists != nil) {
 		return
 	}
 	for _, field := range fields {
@@ -1265,10 +1259,7 @@ func (m *Model) selectProperties(op string, block *fieldBlock, index *IndexDef, 
 
 			// missing sort key → fallback
 			if properties[name] == nil && att == index.Sort && params.High && keysOnlyOp(op) {
-				if op == "delete" && !params.Many {
-					// hard error for delete without sort
-					// handled by caller via fallback
-				}
+				// delete without sort: caller errors when !Many
 				params.fallback = true
 				return
 			}

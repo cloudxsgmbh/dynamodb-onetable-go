@@ -8,6 +8,7 @@ package onetable
 // FieldType names match JS ValidTypes.
 type FieldType string
 
+// FieldType* constants define schema field types.
 const (
 	FieldTypeArray       FieldType = "array"
 	FieldTypeArrayBuffer FieldType = "arraybuffer"
