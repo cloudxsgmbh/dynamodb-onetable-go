@@ -443,5 +443,3 @@ func itemToSchemaDef(item Item) *SchemaDef {
 	}
 	return s
 }
-
-

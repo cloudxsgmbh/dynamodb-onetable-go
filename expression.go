@@ -38,9 +38,9 @@ type expression struct {
 	sort  string
 
 	// command building state
-	already   map[string]bool // attributes already processed
-	key       Item            // primary key values (get/delete/update)
-	keys      []string        // key condition expressions (find)
+	already    map[string]bool // attributes already processed
+	key        Item            // primary key values (get/delete/update)
+	keys       []string        // key condition expressions (find)
 	conditions []string
 	filters    []string
 	project    []string

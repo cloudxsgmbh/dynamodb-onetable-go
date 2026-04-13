@@ -44,7 +44,7 @@ type FieldDef struct {
 	Required bool      `json:"required,omitempty"`
 	Hidden   *bool     `json:"hidden,omitempty"` // pointer: nil = unset
 	Default  any       `json:"default,omitempty"`
-	Value    string    `json:"value,omitempty"` // template e.g. "${_type}#${id}"
+	Value    string    `json:"value,omitempty"`    // template e.g. "${_type}#${id}"
 	Generate string    `json:"generate,omitempty"` // "uuid"|"ulid"|"uid"|"uid(n)"
 	Validate string    `json:"validate,omitempty"` // regex string "/pat/flags"
 	Enum     []string  `json:"enum,omitempty"`
