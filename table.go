@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -480,7 +481,7 @@ func (t *Table) BatchGet(ctx context.Context, batch map[string]any, params *Para
 					return nil, nil
 				}
 				if retries > 11 {
-					return nil, fmt.Errorf("too many unprocessed items after retries")
+					return nil, errors.New("too many unprocessed items after retries")
 				}
 				time.Sleep(time.Duration(10*(1<<retries)) * time.Millisecond)
 				retries++
@@ -509,7 +510,7 @@ func (t *Table) BatchWrite(ctx context.Context, batch map[string]any, params *Pa
 			if unprocessed, ok := data["UnprocessedItems"].(map[string]any); ok && len(unprocessed) > 0 {
 				batch["RequestItems"] = unprocessed
 				if retries > 11 {
-					return false, fmt.Errorf("too many unprocessed items after retries")
+					return false, errors.New("too many unprocessed items after retries")
 				}
 				time.Sleep(time.Duration(10*(1<<retries)) * time.Millisecond)
 				retries++
@@ -1281,7 +1282,7 @@ func (t *Table) decrypt(text string) (string, error) {
 		return "", err
 	}
 	if len(data) < gcm.NonceSize() {
-		return "", fmt.Errorf("ciphertext too short")
+		return "", errors.New("ciphertext too short")
 	}
 	nonce, ciphertext := data[:gcm.NonceSize()], data[gcm.NonceSize():]
 	plain, err := gcm.Open(nil, nonce, ciphertext, nil)

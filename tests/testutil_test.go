@@ -7,6 +7,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -394,7 +395,7 @@ func (m *fullMock) PutItem(_ context.Context, p *ddb.PutItemInput, _ ...func(*dd
 			existing = map[string]types.AttributeValue{}
 		}
 		if !conditionPasses(existing, cond, p.ExpressionAttributeNames, p.ExpressionAttributeValues) {
-			return nil, fmt.Errorf("ConditionalCheckFailedException: condition not met")
+			return nil, errors.New("ConditionalCheckFailedException: condition not met")
 		}
 	}
 	t[k] = p.Item
@@ -535,7 +536,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					existing = map[string]types.AttributeValue{}
 				}
 				if !conditionPasses(existing, cond, ti.Put.ExpressionAttributeNames, ti.Put.ExpressionAttributeValues) {
-					return nil, fmt.Errorf("TransactionCanceledException: condition failed for Put")
+					return nil, errors.New("TransactionCanceledException: condition failed for Put")
 				}
 			}
 		case ti.Update != nil:
@@ -547,7 +548,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					existing = map[string]types.AttributeValue{}
 				}
 				if !conditionPasses(existing, cond, ti.Update.ExpressionAttributeNames, ti.Update.ExpressionAttributeValues) {
-					return nil, fmt.Errorf("TransactionCanceledException: condition failed for Update")
+					return nil, errors.New("TransactionCanceledException: condition failed for Update")
 				}
 			}
 		case ti.Delete != nil:
@@ -559,7 +560,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					existing = map[string]types.AttributeValue{}
 				}
 				if !conditionPasses(existing, cond, ti.Delete.ExpressionAttributeNames, ti.Delete.ExpressionAttributeValues) {
-					return nil, fmt.Errorf("TransactionCanceledException: condition failed for Delete")
+					return nil, errors.New("TransactionCanceledException: condition failed for Delete")
 				}
 			}
 		}

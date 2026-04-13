@@ -2011,7 +2011,7 @@ func (m *Model) selectIndex(params *Params) *IndexDef {
 		if idx, ok := m.indexes[params.Index]; ok {
 			return idx
 		}
-		panic(NewError(fmt.Sprintf("Cannot find index %s", params.Index), WithCode(ErrMissing)))
+		panic(NewError("Cannot find index "+params.Index, WithCode(ErrMissing)))
 	}
 	return m.indexes["primary"]
 }

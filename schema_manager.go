@@ -7,6 +7,7 @@ package onetable
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -296,7 +297,7 @@ func (sm *schemaManager) GetModel(name string, nothrow bool) (*Model, error) {
 		if nothrow {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("undefined model name")
+		return nil, errors.New("undefined model name")
 	}
 	m := sm.models[name]
 	if m == nil {
@@ -325,11 +326,11 @@ func (sm *schemaManager) GetCurrentSchema() *SchemaDef {
 	if sm.definition == nil {
 		return nil
 	}
-	copy := *sm.definition
+	defCopy := *sm.definition
 	p := sm.params
-	copy.Params = &p
-	copy.Process = sm.process
-	return &copy
+	defCopy.Params = &p
+	defCopy.Process = sm.process
+	return &defCopy
 }
 
 // SaveSchema persists the schema to the DynamoDB table.
@@ -343,7 +344,7 @@ func (sm *schemaManager) SaveSchema(ctx context.Context, schema *SchemaDef) erro
 		schema = sm.GetCurrentSchema()
 	}
 	if schema == nil {
-		return fmt.Errorf("no schema to save")
+		return errors.New("no schema to save")
 	}
 	if schema.Name == "" {
 		schema.Name = "Current"
@@ -423,7 +424,7 @@ func (sm *schemaManager) RemoveSchema(ctx context.Context, schema *SchemaDef) er
 		}
 	}
 	if schema == nil || schema.Name == "" {
-		return fmt.Errorf("schema must have a Name to remove")
+		return errors.New("schema must have a Name to remove")
 	}
 	_, err := sm.schemaModel.Remove(ctx, Item{"name": schema.Name}, nil)
 	return err
