@@ -1,0 +1,29 @@
+name: govulncheck
+
+on:
+  push:
+  pull_request:
+  schedule: # weekly on monday at 01:11 UTC
+    - cron: '11 1 * * 1'
+  workflow_dispatch:
+    
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        # https://github.com/actions/setup-go/blob/main/docs/advanced-usage.md#using-the-go-version-file-input
+        # If no patch version is specified, it will search for the latest available patch version.
+        with:
+          go-version-file: go.mod
+
+      - run: |
+          make vuln
