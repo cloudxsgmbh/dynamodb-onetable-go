@@ -31,6 +31,7 @@ const (
 
 // OneTableError is the general runtime error. It carries an optional Code and
 // a free-form Context map for extra debugging data.
+//
 //revive:disable-next-line:exported // keep name for API parity with OneTable.
 type OneTableError struct {
 	Message string
@@ -73,6 +74,7 @@ func WithCause(cause error) func(*OneTableError) {
 }
 
 // OneTableArgError is for invalid argument / configuration errors.
+//
 //revive:disable-next-line:exported // keep name for API parity with OneTable.
 type OneTableArgError struct {
 	Message string

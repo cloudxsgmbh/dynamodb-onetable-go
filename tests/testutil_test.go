@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 	"sync"
@@ -85,19 +86,17 @@ func applyUpdateExpression(
 
 	// process SET
 	if setClause, ok := clauses["set"]; ok {
-		for _, assignment := range strings.Split(setClause, ",") {
+		for assignment := range strings.SplitSeq(setClause, ",") {
 			assignment = strings.TrimSpace(assignment)
 			if assignment == "" {
 				continue
 			}
-			eqIdx := strings.Index(assignment, "=")
-			if eqIdx < 0 {
+			lhs, rhs, ok := strings.Cut(assignment, "=")
+			if !ok {
 				continue
 			}
-			lhs := strings.TrimSpace(assignment[:eqIdx])
-			rhs := strings.TrimSpace(assignment[eqIdx+1:])
-			attr := resolveName(lhs)
-			val := resolveVal(rhs)
+			attr := resolveName(strings.TrimSpace(lhs))
+			val := resolveVal(strings.TrimSpace(rhs))
 			if val != nil {
 				item[attr] = val
 			}
@@ -106,7 +105,7 @@ func applyUpdateExpression(
 
 	// process REMOVE
 	if removeClause, ok := clauses["remove"]; ok {
-		for _, tok := range strings.Split(removeClause, ",") {
+		for tok := range strings.SplitSeq(removeClause, ",") {
 			attr := resolveName(strings.TrimSpace(tok))
 			if attr != "" {
 				delete(item, attr)
@@ -116,7 +115,7 @@ func applyUpdateExpression(
 
 	// process ADD (numeric increment / set add — simplified)
 	if addClause, ok := clauses["add"]; ok {
-		for _, assignment := range strings.Split(addClause, ",") {
+		for assignment := range strings.SplitSeq(addClause, ",") {
 			assignment = strings.TrimSpace(assignment)
 			parts := strings.Fields(assignment)
 			if len(parts) < 2 {
@@ -253,15 +252,13 @@ func evalFilter(
 
 	// comparison operators: attr OP :val
 	for _, op := range []string{"<>", "<=", ">=", "<", ">", "="} {
-		idx := strings.Index(expr, op)
-		if idx < 0 {
+		lhs, rhs, ok := strings.Cut(expr, op)
+		if !ok {
 			continue
 		}
-		lhs := strings.TrimSpace(expr[:idx])
-		rhs := strings.TrimSpace(expr[idx+len(op):])
-		attr := resolveName(lhs)
+		attr := resolveName(strings.TrimSpace(lhs))
 		itemVal := getItemVal(attr)
-		expected := avStr(resolveVal(rhs))
+		expected := avStr(resolveVal(strings.TrimSpace(rhs)))
 		switch op {
 		case "=":
 			return itemVal == expected
@@ -432,9 +429,7 @@ func (m *fullMock) UpdateItem(_ context.Context, p *ddb.UpdateItemInput, _ ...fu
 		return nil, errors.New("ConditionalCheckFailedException: condition not met for update")
 	}
 	// merge key back
-	for kk, vv := range p.Key {
-		existing[kk] = vv
-	}
+	maps.Copy(existing, p.Key)
 	// apply UpdateExpression
 	if p.UpdateExpression != nil {
 		applyUpdateExpression(existing, deref(p.UpdateExpression), p.ExpressionAttributeNames, p.ExpressionAttributeValues)
@@ -577,9 +572,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 			if existing == nil {
 				existing = map[string]types.AttributeValue{}
 			}
-			for kk, vv := range ti.Update.Key {
-				existing[kk] = vv
-			}
+			maps.Copy(existing, ti.Update.Key)
 			if ti.Update.UpdateExpression != nil {
 				applyUpdateExpression(existing, deref(ti.Update.UpdateExpression),
 					ti.Update.ExpressionAttributeNames, ti.Update.ExpressionAttributeValues)

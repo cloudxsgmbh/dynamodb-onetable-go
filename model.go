@@ -9,8 +9,10 @@ package onetable
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -229,7 +231,7 @@ type Result struct {
 // Create creates a new item. Fails if an item with the same key already exists
 // (mirrors JS exists:false default for create).
 func (m *Model) Create(ctx context.Context, properties Item, params *Params) (Item, error) {
-	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true, Exists: boolPtr(false)})
+	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true, Exists: new(bool)})
 	if m.hasUniqueFields {
 		return m.createUnique(ctx, properties, params)
 	}
@@ -283,7 +285,7 @@ func (m *Model) Scan(ctx context.Context, properties Item, params *Params) (*Res
 
 // Update updates an existing item. Fails if the item does not exist (exists:true default).
 func (m *Model) Update(ctx context.Context, properties Item, params *Params) (Item, error) {
-	properties, params = m.checkArgs(ctx, properties, params, &Params{Exists: boolPtr(true), Parse: true, High: true})
+	properties, params = m.checkArgs(ctx, properties, params, &Params{Exists: truePtr(), Parse: true, High: true})
 	if m.hasUniqueFields {
 		// check if any unique property is being changed
 		for k := range properties {
@@ -689,7 +691,7 @@ func (m *Model) parseResponse(ctx context.Context, op string, expr *expression, 
 	if op == "put" {
 		raw = []Item{expr.properties}
 	}
-	// raw is already unmarshalled by execute() – no extra conversion needed
+	// raw is already unmarshaled by execute() – no extra conversion needed
 
 	for _, item := range raw {
 		typeName, _ := item[m.typeField].(string)
@@ -1538,7 +1540,7 @@ func (m *Model) createUnique(ctx context.Context, properties Item, params *Param
 			pk := fmt.Sprintf("_unique#%s#%s#%v", m.Name, field.Attribute[0], v)
 			sk := "_unique#"
 			up := Item{primary.Hash: pk, primary.Sort: sk}
-			_, err := m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: boolPtr(false), Return: "NONE"})
+			_, err := m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: new(bool), Return: "NONE"})
 			if err != nil {
 				return nil, err
 			}
@@ -1603,7 +1605,7 @@ func (m *Model) removeUnique(ctx context.Context, properties Item, params *Param
 		keys[primary.Sort] = properties[primary.Sort]
 	}
 
-	prior, err := m.Get(ctx, keys, &Params{Hidden: boolPtr(true)})
+	prior, err := m.Get(ctx, keys, &Params{Hidden: truePtr()})
 	if err != nil {
 		return nil, err
 	}
@@ -1668,7 +1670,7 @@ func (m *Model) updateUnique(ctx context.Context, properties Item, params *Param
 		keys[primary.Sort] = properties[primary.Sort]
 	}
 
-	prior, err := m.Get(ctx, keys, &Params{Hidden: boolPtr(true)})
+	prior, err := m.Get(ctx, keys, &Params{Hidden: truePtr()})
 	if err != nil {
 		return nil, err
 	}
@@ -1718,7 +1720,7 @@ func (m *Model) updateUnique(ctx context.Context, properties Item, params *Param
 		if newVal != nil && !toBeRemoved {
 			pk := fmt.Sprintf("_unique#%s#%s#%v", m.Name, field.Attribute[0], newVal)
 			up := Item{primary.Hash: pk, primary.Sort: sk}
-			m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: boolPtr(false), Return: "NONE"}) //nolint:errcheck
+			m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: new(bool), Return: "NONE"}) //nolint:errcheck
 		}
 	}
 
@@ -1991,9 +1993,7 @@ func (m *Model) checkArgs(ctx context.Context, properties Item, params *Params, 
 	merged.checked = true
 	// deep clone properties so we don't pollute caller's map
 	clone := make(Item, len(properties))
-	for k, v := range properties {
-		clone[k] = v
-	}
+	maps.Copy(clone, properties)
 	return clone, merged
 }
 
@@ -2047,15 +2047,13 @@ func reverseItems(s []Item) {
 	}
 }
 
-func boolPtr(b bool) *bool { return &b }
+func truePtr() *bool {
+	b := true
+	return &b
+}
 
 func containsStr(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, v)
 }
 
 func unique(s []string) []string {
@@ -2110,7 +2108,7 @@ func toSlice(v any) ([]any, bool) {
 
 func getPropValue(m map[string]any, path string) any {
 	v := any(m)
-	for _, part := range strings.Split(path, ".") {
+	for part := range strings.SplitSeq(path, ".") {
 		if cur, ok := v.(map[string]any); ok {
 			v = cur[part]
 		} else {
@@ -2127,7 +2125,7 @@ func isConditionalFailed(err error) bool {
 	msg := err.Error()
 	if strings.Contains(msg, "ConditionalCheckFailed") ||
 		strings.Contains(msg, "TransactionCanceledException") ||
-		strings.Contains(msg, "Transaction Cancelled") {
+		strings.Contains(msg, "Transaction Canceled") {
 		return true
 	}
 	// check wrapped cause

@@ -213,7 +213,7 @@ func (sm *schemaManager) createMigrationModel() {
 }
 
 // SetSchema replaces the active schema. When schema is nil the current schema
-// is cleared and index keys are re-discovered from DynamoDB (mirrors JS behaviour).
+// is cleared and index keys are re-discovered from DynamoDB (mirrors JS behavior).
 func (sm *schemaManager) SetSchema(ctx context.Context, schema *SchemaDef) (map[string]*IndexDef, error) {
 	if schema != nil {
 		sm.setSchemaInner(schema)
@@ -385,7 +385,7 @@ func (sm *schemaManager) ReadSchema(ctx context.Context) (*SchemaDef, error) {
 	if primary.Sort != "" {
 		props[primary.Sort] = schemaKey + ":Current"
 	}
-	item, err := sm.table.GetItem(ctx, props, &Params{Hidden: boolPtr(true), Parse: true})
+	item, err := sm.table.GetItem(ctx, props, &Params{Hidden: truePtr(), Parse: true})
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,7 @@ func (sm *schemaManager) ReadSchemas(ctx context.Context) ([]*SchemaDef, error) 
 	}
 	primary := sm.indexes["primary"]
 	props := Item{primary.Hash: schemaKey}
-	result, err := sm.table.QueryItems(ctx, props, &Params{Hidden: boolPtr(true), Parse: true})
+	result, err := sm.table.QueryItems(ctx, props, &Params{Hidden: truePtr(), Parse: true})
 	if err != nil {
 		return nil, err
 	}

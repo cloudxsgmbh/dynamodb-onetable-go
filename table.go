@@ -16,9 +16,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -136,7 +139,7 @@ type cryptoEntry struct {
 	key    []byte // sha256 of password
 }
 
-// NewTable creates and initialises a Table instance.
+// NewTable creates and initializes a Table instance.
 func NewTable(params TableParams) (*Table, error) {
 	if params.Name == "" {
 		return nil, NewArgError("Missing \"name\" property")
@@ -313,9 +316,7 @@ func (t *Table) GetContext() Item { return t.context }
 // SetContext sets table context; merge merges keys into current context.
 func (t *Table) SetContext(ctx Item, merge bool) *Table {
 	if merge {
-		for k, v := range ctx {
-			t.context[k] = v
-		}
+		maps.Copy(t.context, ctx)
 	} else {
 		t.context = ctx
 	}
@@ -324,9 +325,7 @@ func (t *Table) SetContext(ctx Item, merge bool) *Table {
 
 // AddContext merges keys into the table context.
 func (t *Table) AddContext(ctx Item) *Table {
-	for k, v := range ctx {
-		t.context[k] = v
-	}
+	maps.Copy(t.context, ctx)
 	return t
 }
 
@@ -720,10 +719,8 @@ func (t *Table) Exists(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, name := range tables {
-		if name == t.Name {
-			return true, nil
-		}
+	if slices.Contains(tables, t.Name) {
+		return true, nil
 	}
 	return false, nil
 }
@@ -791,7 +788,7 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 				proj.NonKeyAttributes = nonKeyAttrs
 			}
 			gsi := types.GlobalSecondaryIndex{
-				IndexName:  strPtr(name),
+				IndexName:  aws.String(name),
 				Projection: &proj,
 			}
 			if provisioned != nil {
@@ -804,7 +801,7 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 
 		if idx.Hash != "" {
 			keys = append(keys, types.KeySchemaElement{
-				AttributeName: strPtr(idx.Hash),
+				AttributeName: aws.String(idx.Hash),
 				KeyType:       types.KeyTypeHash,
 			})
 			if !attributes[idx.Hash] {
@@ -813,13 +810,13 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 					at = types.ScalarAttributeTypeN
 				}
 				def.AttributeDefinitions = append(def.AttributeDefinitions,
-					types.AttributeDefinition{AttributeName: strPtr(idx.Hash), AttributeType: at})
+					types.AttributeDefinition{AttributeName: aws.String(idx.Hash), AttributeType: at})
 				attributes[idx.Hash] = true
 			}
 		}
 		if idx.Sort != "" {
 			keys = append(keys, types.KeySchemaElement{
-				AttributeName: strPtr(idx.Sort),
+				AttributeName: aws.String(idx.Sort),
 				KeyType:       types.KeyTypeRange,
 			})
 			_ = keys
@@ -829,7 +826,7 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 					at = types.ScalarAttributeTypeN
 				}
 				def.AttributeDefinitions = append(def.AttributeDefinitions,
-					types.AttributeDefinition{AttributeName: strPtr(idx.Sort), AttributeType: at})
+					types.AttributeDefinition{AttributeName: aws.String(idx.Sort), AttributeType: at})
 				attributes[idx.Sort] = true
 			}
 		}
@@ -924,21 +921,21 @@ func (t *Table) UpdateTable(ctx context.Context, params *UpdateTableParams) erro
 		}
 
 		keySchema := []types.KeySchemaElement{
-			{AttributeName: strPtr(c.Hash), KeyType: types.KeyTypeHash},
+			{AttributeName: aws.String(c.Hash), KeyType: types.KeyTypeHash},
 		}
 		attrDefs := []types.AttributeDefinition{
-			{AttributeName: strPtr(c.Hash), AttributeType: types.ScalarAttributeTypeS},
+			{AttributeName: aws.String(c.Hash), AttributeType: types.ScalarAttributeTypeS},
 		}
 		if c.Sort != "" {
 			keySchema = append(keySchema, types.KeySchemaElement{
-				AttributeName: strPtr(c.Sort), KeyType: types.KeyTypeRange,
+				AttributeName: aws.String(c.Sort), KeyType: types.KeyTypeRange,
 			})
 			attrDefs = append(attrDefs, types.AttributeDefinition{
-				AttributeName: strPtr(c.Sort), AttributeType: types.ScalarAttributeTypeS,
+				AttributeName: aws.String(c.Sort), AttributeType: types.ScalarAttributeTypeS,
 			})
 		}
 		gsi := types.CreateGlobalSecondaryIndexAction{
-			IndexName:  strPtr(c.Name),
+			IndexName:  aws.String(c.Name),
 			KeySchema:  keySchema,
 			Projection: proj,
 		}
@@ -953,14 +950,14 @@ func (t *Table) UpdateTable(ctx context.Context, params *UpdateTableParams) erro
 	case params.Remove != nil:
 		input.GlobalSecondaryIndexUpdates = []types.GlobalSecondaryIndexUpdate{
 			{Delete: &types.DeleteGlobalSecondaryIndexAction{
-				IndexName: strPtr(params.Remove.Name),
+				IndexName: aws.String(params.Remove.Name),
 			}},
 		}
 
 	case params.Update != nil:
 		u := params.Update
 		update := types.UpdateGlobalSecondaryIndexAction{
-			IndexName: strPtr(u.Name),
+			IndexName: aws.String(u.Name),
 		}
 		if u.Provisioned != nil {
 			update.ProvisionedThroughput = u.Provisioned
@@ -1222,7 +1219,7 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 			return nil, NewError("Provisioning Throughput Exception", WithCode(ErrRuntime), WithCause(execErr))
 		}
 		if strings.Contains(errMsg, "TransactionCanceledException") {
-			return nil, NewError("Transaction Cancelled", WithCode(ErrRuntime), WithCause(execErr))
+			return nil, NewError("Transaction Canceled", WithCode(ErrRuntime), WithCause(execErr))
 		}
 		return nil, NewError(fmt.Sprintf(`OneTable execute failed "%s" for "%s": %s`, op, modelName, errMsg),
 			WithCode(ErrRuntime), WithCause(execErr))
@@ -1324,7 +1321,7 @@ func (t *Table) decrypt(text string) (string, error) {
 // ─── marshall / unmarshall helpers ────────────────────────────────────────────
 
 // unmarshallItem converts a raw DynamoDB attribute value map into a plain Go Item.
-// If the input is already a plain map (i.e. not marshalled), it is returned as-is.
+// If the input is already a plain map (i.e. not marshaled), it is returned as-is.
 func (t *Table) unmarshallItem(raw map[string]any) Item {
 	if raw == nil {
 		return nil
@@ -1332,7 +1329,7 @@ func (t *Table) unmarshallItem(raw map[string]any) Item {
 	// attempt to detect DynamoDB typed format {"S": "value"} by checking first value
 	for _, v := range raw {
 		if _, ok := v.(map[string]any); ok {
-			// likely marshalled – attempt unmarshal
+			// likely marshaled – attempt unmarshal
 			avMap := make(map[string]types.AttributeValue, len(raw))
 			for k, val := range raw {
 				avMap[k] = anyToAV(val)
@@ -1463,11 +1460,11 @@ func buildPutInput(cmd Item) (*ddb.PutItemInput, error) {
 	if item, ok := cmd["Item"].(map[string]types.AttributeValue); ok {
 		input.Item = item
 	} else if itemMap, ok := cmd["Item"].(Item); ok {
-		marshalled, err := marshallForDynamo(itemMap)
+		marshaled, err := marshallForDynamo(itemMap)
 		if err != nil {
 			return nil, err
 		}
-		input.Item = marshalled
+		input.Item = marshaled
 	}
 	if ce, ok := cmd["ConditionExpression"].(string); ok {
 		input.ConditionExpression = &ce
@@ -1656,8 +1653,6 @@ func toIntAny(v any) (int, bool) {
 	}
 	return 0, false
 }
-
-func strPtr(s string) *string { return &s }
 
 // toAnySlice converts []any, []Item (= []map[string]any), etc. to []any.
 func toAnySlice(v any) []any {

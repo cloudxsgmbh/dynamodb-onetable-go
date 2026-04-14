@@ -75,7 +75,7 @@ type FieldMap map[string]*FieldDef
 // ModelDef is the schema for one model (entity type).
 type ModelDef = FieldMap
 
-// SchemaParams holds table-level behavioural flags.
+// SchemaParams holds table-level behavioral flags.
 type SchemaParams struct {
 	CreatedField string `json:"createdField,omitempty"`
 	UpdatedField string `json:"updatedField,omitempty"`

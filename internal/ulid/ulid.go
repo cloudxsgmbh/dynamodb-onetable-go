@@ -150,7 +150,7 @@ func decode(src []byte) ([16]byte, error) {
 	if src[0] > '7' {
 		return [16]byte{}, errors.New("ulid: invalid ULID overflow")
 	}
-	for i := 0; i < len(src); i++ {
+	for i := range src {
 		if dec[src[i]] == 0xFF {
 			return [16]byte{}, fmt.Errorf("ulid: invalid ULID char %q", src[i])
 		}
