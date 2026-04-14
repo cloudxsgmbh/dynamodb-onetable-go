@@ -24,7 +24,7 @@ func TestTransact_Create(t *testing.T) {
 		}
 		last = u
 	}
-	if _, err := tbl.Transact(bg(), "write", transaction, &ot.Params{Parse: true, Hidden: boolPtr(false)}); err != nil {
+	if _, err := tbl.Transact(bg(), "write", transaction, &ot.Params{Parse: true, Hidden: falsePtr()}); err != nil {
 		t.Fatalf("Transact write: %v", err)
 	}
 	// returned item from transact is a stub (no pk/sk)
@@ -34,7 +34,7 @@ func TestTransact_Create(t *testing.T) {
 
 func TestTransact_Get(t *testing.T) {
 	tbl, _ := makeTable(t, "TransactTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(txData))
 	for _, d := range txData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -44,7 +44,7 @@ func TestTransact_Get(t *testing.T) {
 	for _, u := range users {
 		tbl.Get(bg(), "User", ot.Item{"id": u["id"]}, &ot.Params{Transaction: transaction}) //nolint
 	}
-	result, err := tbl.Transact(bg(), "get", transaction, &ot.Params{Parse: true, Hidden: boolPtr(false)})
+	result, err := tbl.Transact(bg(), "get", transaction, &ot.Params{Parse: true, Hidden: falsePtr()})
 	if err != nil {
 		t.Fatalf("Transact get: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestTransact_Get(t *testing.T) {
 
 func TestTransact_Update(t *testing.T) {
 	tbl, _ := makeTable(t, "TransactTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(txData))
 	for _, d := range txData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -75,7 +75,7 @@ func TestTransact_Update(t *testing.T) {
 
 func TestTransact_GroupByType(t *testing.T) {
 	tbl, _ := makeTable(t, "TransactTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(txData))
 	for _, d := range txData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -89,7 +89,7 @@ func TestTransact_GroupByType(t *testing.T) {
 	}
 	tbl.Transact(bg(), "write", transaction, nil) //nolint
 
-	all, _ := tbl.Scan(bg(), "User", ot.Item{}, &ot.Params{Hidden: boolPtr(true)})
+	all, _ := tbl.Scan(bg(), "User", ot.Item{}, &ot.Params{Hidden: truePtr()})
 	grouped := tbl.GroupByType(all.Items, nil)
 	if len(grouped["User"]) != len(txData) {
 		t.Errorf("expected %d Users in group, got %d", len(txData), len(grouped["User"]))
@@ -98,7 +98,7 @@ func TestTransact_GroupByType(t *testing.T) {
 
 func TestTransact_GetWithoutParse(t *testing.T) {
 	tbl, _ := makeTable(t, "TransactTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(txData))
 	for _, d := range txData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -108,7 +108,7 @@ func TestTransact_GetWithoutParse(t *testing.T) {
 	for _, u := range users {
 		tbl.Get(bg(), "User", ot.Item{"id": u["id"]}, &ot.Params{Transaction: transaction}) //nolint
 	}
-	result, err := tbl.Transact(bg(), "get", transaction, &ot.Params{Parse: false, Hidden: boolPtr(true)})
+	result, err := tbl.Transact(bg(), "get", transaction, &ot.Params{Parse: false, Hidden: truePtr()})
 	if err != nil {
 		t.Fatalf("Transact get no-parse: %v", err)
 	}

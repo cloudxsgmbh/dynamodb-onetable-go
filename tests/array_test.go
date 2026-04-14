@@ -74,7 +74,7 @@ func TestArray_FullUpdate(t *testing.T) {
 	updated, err := tbl.Update(bg(), "User", ot.Item{
 		"email":     "user@example.com",
 		"addresses": []any{map[string]any{"street": "7 Yellow Brick Road"}},
-	}, &ot.Params{Partial: boolPtr(false)})
+	}, &ot.Params{Partial: falsePtr()})
 	if err != nil {
 		t.Fatalf("full update: %v", err)
 	}

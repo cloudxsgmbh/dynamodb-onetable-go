@@ -9,8 +9,10 @@ package onetable
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -137,7 +139,7 @@ type Params struct {
 	Parse   bool  // unmarshal DynamoDB response into Item map
 	High    bool  // high-level API mode (adds type filter, etc.)
 	Hidden  *bool // override hidden field visibility
-	Partial *bool // override partial nested-update behaviour
+	Partial *bool // override partial nested-update behavior
 
 	// Condition / exists
 	Exists *bool // true=must exist, false=must not exist, nil=don't care
@@ -193,11 +195,10 @@ type Params struct {
 	Many bool
 
 	// Internal: mark already-cloned args
-	checked      bool
-	prepared     bool
-	fallback     bool
-	existsWasSet bool        // true when Exists was explicitly set by caller (even to nil)
-	expression   *expression // stored during transact/batch for later parseResponse
+	checked    bool
+	prepared   bool
+	fallback   bool
+	expression *expression // stored during transact/batch for later parseResponse
 
 	// Custom post-format hook
 	PostFormat func(model *Model, cmd map[string]any) map[string]any
@@ -230,7 +231,7 @@ type Result struct {
 // Create creates a new item. Fails if an item with the same key already exists
 // (mirrors JS exists:false default for create).
 func (m *Model) Create(ctx context.Context, properties Item, params *Params) (Item, error) {
-	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true, Exists: boolPtr(false)})
+	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true, Exists: new(bool)})
 	if m.hasUniqueFields {
 		return m.createUnique(ctx, properties, params)
 	}
@@ -284,7 +285,7 @@ func (m *Model) Scan(ctx context.Context, properties Item, params *Params) (*Res
 
 // Update updates an existing item. Fails if the item does not exist (exists:true default).
 func (m *Model) Update(ctx context.Context, properties Item, params *Params) (Item, error) {
-	properties, params = m.checkArgs(ctx, properties, params, &Params{Exists: boolPtr(true), Parse: true, High: true})
+	properties, params = m.checkArgs(ctx, properties, params, &Params{Exists: truePtr(), Parse: true, High: true})
 	if m.hasUniqueFields {
 		// check if any unique property is being changed
 		for k := range properties {
@@ -338,7 +339,7 @@ func (m *Model) Remove(ctx context.Context, properties Item, params *Params) (It
 	return item, nil
 }
 
-// Init initialises a local item with defaults and value templates without writing to DynamoDB.
+// Init initializes a local item with defaults and value templates without writing to DynamoDB.
 func (m *Model) Init(ctx context.Context, properties Item, params *Params) (Item, error) {
 	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true})
 	return m.initItem(ctx, properties, params)
@@ -505,7 +506,7 @@ func (m *Model) run(ctx context.Context, op string, expr *expression) (Item, err
 	}
 
 	// return command without executing
-	if expr.execute == false {
+	if !expr.execute {
 		logInfo(m.table.log, fmt.Sprintf(`OneTable command for "%s" "%s" (not executed)`, op, m.Name),
 			map[string]any{"cmd": cmd, "op": op})
 		return cmd, nil
@@ -565,7 +566,7 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 		return nil, err
 	}
 
-	if expr.execute == false {
+	if !expr.execute {
 		return &Result{Items: []Item{cmd}}, nil
 	}
 
@@ -600,8 +601,8 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 			if s := toInt(result["ScannedCount"]); s > 0 {
 				params.Stats.Scanned += s
 			}
-			if cap, ok := result["ConsumedCapacity"].(map[string]any); ok {
-				if u, ok := cap["CapacityUnits"].(float64); ok {
+			if consumed, ok := result["ConsumedCapacity"].(map[string]any); ok {
+				if u, ok := consumed["CapacityUnits"].(float64); ok {
 					params.Stats.Capacity += u
 				}
 			}
@@ -689,10 +690,8 @@ func (m *Model) parseResponse(ctx context.Context, op string, expr *expression, 
 	// put doesn't return the item from DynamoDB – use expression properties (already Go-typed)
 	if op == "put" {
 		raw = []Item{expr.properties}
-		// raw is already plain Go values; skip unmarshalling below
-	} else {
-		// raw is already unmarshalled by execute() – no extra conversion needed
 	}
+	// raw is already unmarshaled by execute() – no extra conversion needed
 
 	for _, item := range raw {
 		typeName, _ := item[m.typeField].(string)
@@ -733,7 +732,7 @@ func (m *Model) transformReadBlock(op string, raw Item, properties Item, params 
 			if params == nil || params.Follow == nil || !*params.Follow {
 				if params == nil || params.Hidden == nil || !*params.Hidden {
 					// skip hidden unless explicitly requested
-					if !(params != nil && params.Hidden != nil && *params.Hidden) {
+					if params == nil || params.Hidden == nil || !*params.Hidden {
 						continue
 					}
 				}
@@ -886,6 +885,8 @@ func (m *Model) transformReadAttribute(field *preparedField, name string, value 
 		if s, ok := value.(string); ok {
 			return []byte(s) // base64 decoded by attributevalue library
 		}
+	case FieldTypeArray, FieldTypeBoolean, FieldTypeNumber, FieldTypeObject, FieldTypeSet, FieldTypeString:
+		return value
 	}
 	return value
 }
@@ -929,9 +930,6 @@ func (m *Model) collectProperties(ctx context.Context, op, pathname string, bloc
 	rec := Item{}
 
 	if context == nil {
-		if params.Context != nil {
-			// params.Context is set via WithContext but not used here (it's the Go context)
-		}
 		context = m.table.context
 	}
 
@@ -965,7 +963,7 @@ func (m *Model) collectNested(ctx context.Context, op, pathname string, fields m
 			continue
 		}
 		name := field.Name
-		value, _ := properties[name]
+		value := properties[name]
 		if op == "put" && value == nil {
 			if field.Required {
 				if field.Type == FieldTypeArray {
@@ -1040,7 +1038,7 @@ func (m *Model) addContext(op string, fields map[string]*preparedField, index *I
 
 // setDefaults sets default values for put/init or upsert.
 func (m *Model) setDefaults(op string, fields map[string]*preparedField, properties Item, params *Params) {
-	if op != "put" && op != "init" && !(op == "update" && params != nil && params.Exists == nil) {
+	if op != "put" && op != "init" && (op != "update" || params == nil || params.Exists != nil) {
 		return
 	}
 	for _, field := range fields {
@@ -1138,9 +1136,7 @@ func (m *Model) runTemplate(op string, index *IndexDef, field *preparedField, pr
 	if strings.Contains(result, "${") {
 		if index != nil && field.Attribute[0] == index.Sort && op == "find" {
 			// strip from first unresolved ${ onward, use prefix for begins_with
-			idx := strings.Index(result, "${")
-			prefix := result[:idx]
-			if prefix != "" {
+			if prefix, _, ok := strings.Cut(result, "${"); ok && prefix != "" {
 				return map[string]any{"begins": prefix}, nil
 			}
 		}
@@ -1265,21 +1261,19 @@ func (m *Model) selectProperties(op string, block *fieldBlock, index *IndexDef, 
 
 			// missing sort key → fallback
 			if properties[name] == nil && att == index.Sort && params.High && keysOnlyOp(op) {
-				if op == "delete" && !params.Many {
-					// hard error for delete without sort
-					// handled by caller via fallback
-				}
+				// delete without sort: caller errors when !Many
 				params.fallback = true
 				return
 			}
 
-			if keysOnlyOp(op) && att != index.Hash && att != index.Sort && !m.hasUniqueFields {
+			switch {
+			case keysOnlyOp(op) && att != index.Hash && att != index.Sort && !m.hasUniqueFields:
 				omit = true
-			} else if project != nil && !containsStr(project, att) {
+			case project != nil && !containsStr(project, att):
 				omit = true
-			} else if name == m.typeField && name != index.Hash && name != index.Sort && op == "find" {
+			case name == m.typeField && name != index.Hash && name != index.Sort && op == "find":
 				omit = true
-			} else if field.Def.Encode != nil {
+			case field.Def.Encode != nil:
 				omit = true
 			}
 		}
@@ -1312,7 +1306,7 @@ func (m *Model) getProjection(index *IndexDef) []string {
 		}
 	case []string:
 		primary := m.indexes["primary"]
-		all := append(p, primary.Hash, primary.Sort, index.Hash, index.Sort)
+		all := append(append([]string{}, p...), primary.Hash, primary.Sort, index.Hash, index.Sort)
 		return unique(all)
 	case []any:
 		strs := make([]string, 0, len(p))
@@ -1322,7 +1316,7 @@ func (m *Model) getProjection(index *IndexDef) []string {
 			}
 		}
 		primary := m.indexes["primary"]
-		all := append(strs, primary.Hash, primary.Sort, index.Hash, index.Sort)
+		all := append(append([]string{}, strs...), primary.Hash, primary.Sort, index.Hash, index.Sort)
 		return unique(all)
 	}
 	return nil
@@ -1418,6 +1412,8 @@ func (m *Model) transformWriteAttribute(op string, field *preparedField, value a
 				return m.transformNestedWriteFieldsMap(field, obj)
 			}
 		}
+	case FieldTypeSet:
+		return value
 	}
 
 	if field.Def.Crypt && value != nil {
@@ -1544,7 +1540,7 @@ func (m *Model) createUnique(ctx context.Context, properties Item, params *Param
 			pk := fmt.Sprintf("_unique#%s#%s#%v", m.Name, field.Attribute[0], v)
 			sk := "_unique#"
 			up := Item{primary.Hash: pk, primary.Sort: sk}
-			_, err := m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: boolPtr(false), Return: "NONE"})
+			_, err := m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: new(bool), Return: "NONE"})
 			if err != nil {
 				return nil, err
 			}
@@ -1609,7 +1605,7 @@ func (m *Model) removeUnique(ctx context.Context, properties Item, params *Param
 		keys[primary.Sort] = properties[primary.Sort]
 	}
 
-	prior, err := m.Get(ctx, keys, &Params{Hidden: boolPtr(true)})
+	prior, err := m.Get(ctx, keys, &Params{Hidden: truePtr()})
 	if err != nil {
 		return nil, err
 	}
@@ -1674,7 +1670,7 @@ func (m *Model) updateUnique(ctx context.Context, properties Item, params *Param
 		keys[primary.Sort] = properties[primary.Sort]
 	}
 
-	prior, err := m.Get(ctx, keys, &Params{Hidden: boolPtr(true)})
+	prior, err := m.Get(ctx, keys, &Params{Hidden: truePtr()})
 	if err != nil {
 		return nil, err
 	}
@@ -1724,7 +1720,7 @@ func (m *Model) updateUnique(ctx context.Context, properties Item, params *Param
 		if newVal != nil && !toBeRemoved {
 			pk := fmt.Sprintf("_unique#%s#%s#%v", m.Name, field.Attribute[0], newVal)
 			up := Item{primary.Hash: pk, primary.Sort: sk}
-			m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: boolPtr(false), Return: "NONE"}) //nolint:errcheck
+			m.getSchemaMgr().uniqueModel.Create(ctx, up, &Params{Transaction: params.Transaction, Exists: new(bool), Return: "NONE"}) //nolint:errcheck
 		}
 	}
 
@@ -1845,17 +1841,16 @@ func (m *Model) followItems(ctx context.Context, op string, items []Item, params
 	errs := make(chan error, len(items))
 	out := make([]Item, len(items))
 	for i, item := range items {
-		i, item := i, item
 		sem <- struct{}{}
-		go func() {
+		go func(idx int, it Item) {
 			defer func() { <-sem }()
-			got, err := m.Get(ctx, item, &p2)
+			got, err := m.Get(ctx, it, &p2)
 			if err != nil {
 				errs <- err
 				return
 			}
-			out[i] = got
-		}()
+			out[idx] = got
+		}(i, item)
 	}
 	for i := 0; i < cap(sem); i++ {
 		sem <- struct{}{}
@@ -1998,9 +1993,7 @@ func (m *Model) checkArgs(ctx context.Context, properties Item, params *Params, 
 	merged.checked = true
 	// deep clone properties so we don't pollute caller's map
 	clone := make(Item, len(properties))
-	for k, v := range properties {
-		clone[k] = v
-	}
+	maps.Copy(clone, properties)
 	return clone, merged
 }
 
@@ -2009,7 +2002,7 @@ func (m *Model) selectIndex(params *Params) *IndexDef {
 		if idx, ok := m.indexes[params.Index]; ok {
 			return idx
 		}
-		panic(NewError(fmt.Sprintf("Cannot find index %s", params.Index), WithCode(ErrMissing)))
+		panic(NewError("Cannot find index "+params.Index, WithCode(ErrMissing)))
 	}
 	return m.indexes["primary"]
 }
@@ -2054,15 +2047,13 @@ func reverseItems(s []Item) {
 	}
 }
 
-func boolPtr(b bool) *bool { return &b }
+func truePtr() *bool {
+	b := true
+	return &b
+}
 
 func containsStr(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, v)
 }
 
 func unique(s []string) []string {
@@ -2117,7 +2108,7 @@ func toSlice(v any) ([]any, bool) {
 
 func getPropValue(m map[string]any, path string) any {
 	v := any(m)
-	for _, part := range strings.Split(path, ".") {
+	for part := range strings.SplitSeq(path, ".") {
 		if cur, ok := v.(map[string]any); ok {
 			v = cur[part]
 		} else {
@@ -2134,7 +2125,7 @@ func isConditionalFailed(err error) bool {
 	msg := err.Error()
 	if strings.Contains(msg, "ConditionalCheckFailed") ||
 		strings.Contains(msg, "TransactionCanceledException") ||
-		strings.Contains(msg, "Transaction Cancelled") {
+		strings.Contains(msg, "Transaction Canceled") {
 		return true
 	}
 	// check wrapped cause

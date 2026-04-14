@@ -26,7 +26,7 @@ func UID(size int) string {
 		panic("uid: crypto/rand read failed: " + err.Error())
 	}
 	out := make([]byte, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		idx := int(math.Floor(float64(buf[i]) / 0xff * float64(lettersLen)))
 		out[i] = letters[idx]
 	}

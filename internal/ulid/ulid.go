@@ -3,6 +3,7 @@ package ulid
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -53,7 +54,7 @@ func Decode(s string) (int64, error) {
 		return 0, fmt.Errorf("ulid: invalid ULID length %d", len(s))
 	}
 	if s[0] > '7' {
-		return 0, fmt.Errorf("ulid: invalid ULID overflow")
+		return 0, errors.New("ulid: invalid ULID overflow")
 	}
 	id, err := decode([]byte(s))
 	if err != nil {
@@ -147,9 +148,9 @@ func decode(src []byte) ([16]byte, error) {
 		return [16]byte{}, fmt.Errorf("ulid: invalid ULID length %d", len(src))
 	}
 	if src[0] > '7' {
-		return [16]byte{}, fmt.Errorf("ulid: invalid ULID overflow")
+		return [16]byte{}, errors.New("ulid: invalid ULID overflow")
 	}
-	for i := 0; i < len(src); i++ {
+	for i := range src {
 		if dec[src[i]] == 0xFF {
 			return [16]byte{}, fmt.Errorf("ulid: invalid ULID char %q", src[i])
 		}

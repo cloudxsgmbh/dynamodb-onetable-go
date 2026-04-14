@@ -7,6 +7,7 @@ package onetable
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -212,7 +213,7 @@ func (sm *schemaManager) createMigrationModel() {
 }
 
 // SetSchema replaces the active schema. When schema is nil the current schema
-// is cleared and index keys are re-discovered from DynamoDB (mirrors JS behaviour).
+// is cleared and index keys are re-discovered from DynamoDB (mirrors JS behavior).
 func (sm *schemaManager) SetSchema(ctx context.Context, schema *SchemaDef) (map[string]*IndexDef, error) {
 	if schema != nil {
 		sm.setSchemaInner(schema)
@@ -296,7 +297,7 @@ func (sm *schemaManager) GetModel(name string, nothrow bool) (*Model, error) {
 		if nothrow {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("undefined model name")
+		return nil, errors.New("undefined model name")
 	}
 	m := sm.models[name]
 	if m == nil {
@@ -325,11 +326,11 @@ func (sm *schemaManager) GetCurrentSchema() *SchemaDef {
 	if sm.definition == nil {
 		return nil
 	}
-	copy := *sm.definition
+	defCopy := *sm.definition
 	p := sm.params
-	copy.Params = &p
-	copy.Process = sm.process
-	return &copy
+	defCopy.Params = &p
+	defCopy.Process = sm.process
+	return &defCopy
 }
 
 // SaveSchema persists the schema to the DynamoDB table.
@@ -343,7 +344,7 @@ func (sm *schemaManager) SaveSchema(ctx context.Context, schema *SchemaDef) erro
 		schema = sm.GetCurrentSchema()
 	}
 	if schema == nil {
-		return fmt.Errorf("no schema to save")
+		return errors.New("no schema to save")
 	}
 	if schema.Name == "" {
 		schema.Name = "Current"
@@ -384,7 +385,7 @@ func (sm *schemaManager) ReadSchema(ctx context.Context) (*SchemaDef, error) {
 	if primary.Sort != "" {
 		props[primary.Sort] = schemaKey + ":Current"
 	}
-	item, err := sm.table.GetItem(ctx, props, &Params{Hidden: boolPtr(true), Parse: true})
+	item, err := sm.table.GetItem(ctx, props, &Params{Hidden: truePtr(), Parse: true})
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +404,7 @@ func (sm *schemaManager) ReadSchemas(ctx context.Context) ([]*SchemaDef, error) 
 	}
 	primary := sm.indexes["primary"]
 	props := Item{primary.Hash: schemaKey}
-	result, err := sm.table.QueryItems(ctx, props, &Params{Hidden: boolPtr(true), Parse: true})
+	result, err := sm.table.QueryItems(ctx, props, &Params{Hidden: truePtr(), Parse: true})
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +424,7 @@ func (sm *schemaManager) RemoveSchema(ctx context.Context, schema *SchemaDef) er
 		}
 	}
 	if schema == nil || schema.Name == "" {
-		return fmt.Errorf("schema must have a Name to remove")
+		return errors.New("schema must have a Name to remove")
 	}
 	_, err := sm.schemaModel.Remove(ctx, Item{"name": schema.Name}, nil)
 	return err
@@ -443,5 +444,3 @@ func itemToSchemaDef(item Item) *SchemaDef {
 	}
 	return s
 }
-
-

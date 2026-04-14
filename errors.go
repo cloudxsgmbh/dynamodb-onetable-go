@@ -11,18 +11,28 @@ import "fmt"
 type ErrorCode string
 
 const (
-	ErrArgument   ErrorCode = "ArgumentError"
+	// ErrArgument indicates invalid arguments or configuration.
+	ErrArgument ErrorCode = "ArgumentError"
+	// ErrValidation indicates validation failure.
 	ErrValidation ErrorCode = "ValidationError"
-	ErrMissing    ErrorCode = "MissingError"
-	ErrNonUnique  ErrorCode = "NonUniqueError"
-	ErrUnique     ErrorCode = "UniqueError"
-	ErrNotFound   ErrorCode = "NotFoundError"
-	ErrRuntime    ErrorCode = "RuntimeError"
-	ErrType       ErrorCode = "TypeError"
+	// ErrMissing indicates missing required values.
+	ErrMissing ErrorCode = "MissingError"
+	// ErrNonUnique indicates non-unique result where one expected.
+	ErrNonUnique ErrorCode = "NonUniqueError"
+	// ErrUnique indicates unique constraint violation.
+	ErrUnique ErrorCode = "UniqueError"
+	// ErrNotFound indicates missing resource.
+	ErrNotFound ErrorCode = "NotFoundError"
+	// ErrRuntime indicates internal runtime failure.
+	ErrRuntime ErrorCode = "RuntimeError"
+	// ErrType indicates type mismatch or conversion failure.
+	ErrType ErrorCode = "TypeError"
 )
 
 // OneTableError is the general runtime error. It carries an optional Code and
 // a free-form Context map for extra debugging data.
+//
+//revive:disable-next-line:exported // keep name for API parity with OneTable.
 type OneTableError struct {
 	Message string
 	Code    ErrorCode
@@ -64,6 +74,8 @@ func WithCause(cause error) func(*OneTableError) {
 }
 
 // OneTableArgError is for invalid argument / configuration errors.
+//
+//revive:disable-next-line:exported // keep name for API parity with OneTable.
 type OneTableArgError struct {
 	Message string
 	Code    ErrorCode

@@ -8,6 +8,7 @@ package onetable
 // FieldType names match JS ValidTypes.
 type FieldType string
 
+// FieldType* constants define schema field types.
 const (
 	FieldTypeArray       FieldType = "array"
 	FieldTypeArrayBuffer FieldType = "arraybuffer"
@@ -44,7 +45,7 @@ type FieldDef struct {
 	Required bool      `json:"required,omitempty"`
 	Hidden   *bool     `json:"hidden,omitempty"` // pointer: nil = unset
 	Default  any       `json:"default,omitempty"`
-	Value    string    `json:"value,omitempty"` // template e.g. "${_type}#${id}"
+	Value    string    `json:"value,omitempty"`    // template e.g. "${_type}#${id}"
 	Generate string    `json:"generate,omitempty"` // "uuid"|"ulid"|"uid"|"uid(n)"
 	Validate string    `json:"validate,omitempty"` // regex string "/pat/flags"
 	Enum     []string  `json:"enum,omitempty"`
@@ -74,7 +75,7 @@ type FieldMap map[string]*FieldDef
 // ModelDef is the schema for one model (entity type).
 type ModelDef = FieldMap
 
-// SchemaParams holds table-level behavioural flags.
+// SchemaParams holds table-level behavioral flags.
 type SchemaParams struct {
 	CreatedField string `json:"createdField,omitempty"`
 	UpdatedField string `json:"updatedField,omitempty"`

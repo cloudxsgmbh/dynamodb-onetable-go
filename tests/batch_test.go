@@ -31,7 +31,7 @@ func TestBatch_PutWrite(t *testing.T) {
 
 func TestBatch_Get(t *testing.T) {
 	tbl, _ := makeTable(t, "BatchTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(batchData))
 	for _, d := range batchData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -41,7 +41,7 @@ func TestBatch_Get(t *testing.T) {
 	for _, u := range users {
 		tbl.Get(bg(), "User", ot.Item{"id": u["id"]}, &ot.Params{Batch: batch}) //nolint
 	}
-	result, err := tbl.BatchGet(bg(), batch, &ot.Params{Parse: true, Hidden: boolPtr(false), Consistent: true})
+	result, err := tbl.BatchGet(bg(), batch, &ot.Params{Parse: true, Hidden: falsePtr(), Consistent: true})
 	if err != nil {
 		t.Fatalf("BatchGet: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestBatch_Get(t *testing.T) {
 
 func TestBatch_PutDeleteCombined(t *testing.T) {
 	tbl, _ := makeTable(t, "BatchTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(batchData))
 	for _, d := range batchData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -81,7 +81,7 @@ func TestBatch_PutDeleteCombined(t *testing.T) {
 
 func TestBatch_GetWithoutParse(t *testing.T) {
 	tbl, _ := makeTable(t, "BatchTable", DefaultSchema, false)
-	users := make([]ot.Item, 0)
+	users := make([]ot.Item, 0, len(batchData))
 	for _, d := range batchData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)
@@ -91,7 +91,7 @@ func TestBatch_GetWithoutParse(t *testing.T) {
 	for _, u := range users {
 		tbl.Get(bg(), "User", ot.Item{"id": u["id"]}, &ot.Params{Batch: batch}) //nolint
 	}
-	result, err := tbl.BatchGet(bg(), batch, &ot.Params{Hidden: boolPtr(false)})
+	result, err := tbl.BatchGet(bg(), batch, &ot.Params{Hidden: falsePtr()})
 	if err != nil {
 		t.Fatalf("BatchGet no-parse: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestBatch_GetWithoutParse(t *testing.T) {
 
 func TestBatch_WithFields(t *testing.T) {
 	tbl, _ := makeTable(t, "BatchTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(batchData))
 	for _, d := range batchData {
 		u, _ := tbl.Create(bg(), "User", d, nil)
 		users = append(users, u)

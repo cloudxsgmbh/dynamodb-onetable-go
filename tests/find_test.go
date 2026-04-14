@@ -16,7 +16,7 @@ var findData = []ot.Item{
 func setupFindTable(t *testing.T) (*ot.Table, []ot.Item) {
 	t.Helper()
 	tbl, _ := makeTable(t, "FindTable", DefaultSchema, false)
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(findData))
 	for _, d := range findData {
 		u, err := tbl.Create(bg(), "User", d, nil)
 		if err != nil {
@@ -102,7 +102,7 @@ func TestScan_All(t *testing.T) {
 
 func TestScan_HiddenFields(t *testing.T) {
 	tbl, _ := setupFindTable(t)
-	result, err := tbl.Scan(bg(), "User", ot.Item{}, &ot.Params{Hidden: boolPtr(true)})
+	result, err := tbl.Scan(bg(), "User", ot.Item{}, &ot.Params{Hidden: truePtr()})
 	if err != nil {
 		t.Fatalf("Scan hidden: %v", err)
 	}

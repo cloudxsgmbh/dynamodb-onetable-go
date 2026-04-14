@@ -38,9 +38,9 @@ type expression struct {
 	sort  string
 
 	// command building state
-	already   map[string]bool // attributes already processed
-	key       Item            // primary key values (get/delete/update)
-	keys      []string        // key condition expressions (find)
+	already    map[string]bool // attributes already processed
+	key        Item            // primary key values (get/delete/update)
+	keys       []string        // key condition expressions (find)
 	conditions []string
 	filters    []string
 	project    []string
@@ -336,7 +336,7 @@ func (e *expression) addUpdate(field *preparedField, path string, value any) {
 		return
 	}
 	if field.Name == e.model.typeField {
-		if !(e.params.Exists == nil || (e.params.Exists != nil && !*e.params.Exists)) {
+		if e.params.Exists != nil && *e.params.Exists {
 			return
 		}
 	}
@@ -426,13 +426,16 @@ func (e *expression) expand(where string) string {
 		inner := m[1 : len(m)-1]
 		var val any
 		// numeric?
-		if f, err := strconv.ParseFloat(inner, 64); err == nil {
-			val = f
-		} else if inner == "true" {
+		switch inner {
+		case "true":
 			val = true
-		} else if inner == "false" {
+		case "false":
 			val = false
-		} else {
+		default:
+			if f, err := strconv.ParseFloat(inner, 64); err == nil {
+				val = f
+				break
+			}
 			// strip surrounding quotes
 			if len(inner) >= 2 && inner[0] == '"' && inner[len(inner)-1] == '"' {
 				val = inner[1 : len(inner)-1]
@@ -707,7 +710,7 @@ func (e *expression) command() (Item, error) {
 		// ScanIndexForward: reverse XOR prev-without-next
 		reverse := params.Reverse
 		prevMode := params.Prev != nil && params.Next == nil
-		args["ScanIndexForward"] = !(reverse != prevMode) // XOR
+		args["ScanIndexForward"] = reverse == prevMode
 
 		cursor := params.Next
 		if cursor == nil {

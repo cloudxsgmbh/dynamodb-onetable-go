@@ -56,7 +56,7 @@ func TestUpdate_MultipleUsers(t *testing.T) {
 		{"name": "Patty O'Furniture", "email": "patty@example.com", "status": "active", "age": float64(30)},
 		{"name": "Cu Later", "email": "cu@example.com", "status": "inactive", "age": float64(40)},
 	}
-	var users []ot.Item
+	users := make([]ot.Item, 0, len(data))
 	for _, d := range data {
 		u, err := tbl.Create(bg(), "User", d, nil)
 		if err != nil {

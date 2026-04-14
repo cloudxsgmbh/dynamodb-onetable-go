@@ -13,11 +13,15 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -135,7 +139,7 @@ type cryptoEntry struct {
 	key    []byte // sha256 of password
 }
 
-// NewTable creates and initialises a Table instance.
+// NewTable creates and initializes a Table instance.
 func NewTable(params TableParams) (*Table, error) {
 	if params.Name == "" {
 		return nil, NewArgError("Missing \"name\" property")
@@ -160,11 +164,12 @@ func NewTable(params TableParams) (*Table, error) {
 	}
 
 	// logging
-	if params.Logger != nil {
+	switch {
+	case params.Logger != nil:
 		t.log = params.Logger
-	} else if params.Verbose {
+	case params.Verbose:
 		t.log = verboseLogger{}
-	} else {
+	default:
 		t.log = defaultLogger{}
 	}
 
@@ -235,26 +240,32 @@ func (t *Table) SetSchema(ctx context.Context, schema *SchemaDef) (map[string]*I
 	return t.schemaMgr.SetSchema(ctx, schema)
 }
 
+// GetCurrentSchema returns the active schema definition.
 func (t *Table) GetCurrentSchema() *SchemaDef {
 	return t.schemaMgr.GetCurrentSchema()
 }
 
+// GetKeys returns index definitions discovered from DynamoDB.
 func (t *Table) GetKeys(ctx context.Context) (map[string]*IndexDef, error) {
 	return t.schemaMgr.GetKeys(ctx, false)
 }
 
+// GetModel returns a registered model by name.
 func (t *Table) GetModel(name string) (*Model, error) {
 	return t.schemaMgr.GetModel(name, false)
 }
 
+// AddModel registers a new model definition.
 func (t *Table) AddModel(name string, fields FieldMap) {
 	t.schemaMgr.AddModel(name, fields)
 }
 
+// RemoveModel deletes a model definition.
 func (t *Table) RemoveModel(name string) error {
 	return t.schemaMgr.RemoveModel(name)
 }
 
+// ListModels returns registered model names.
 func (t *Table) ListModels() []string {
 	return t.schemaMgr.ListModels()
 }
@@ -299,26 +310,26 @@ func (t *Table) RemoveSchema(ctx context.Context, schema *SchemaDef) error {
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
+// GetContext returns the table context.
 func (t *Table) GetContext() Item { return t.context }
 
+// SetContext sets table context; merge merges keys into current context.
 func (t *Table) SetContext(ctx Item, merge bool) *Table {
 	if merge {
-		for k, v := range ctx {
-			t.context[k] = v
-		}
+		maps.Copy(t.context, ctx)
 	} else {
 		t.context = ctx
 	}
 	return t
 }
 
+// AddContext merges keys into the table context.
 func (t *Table) AddContext(ctx Item) *Table {
-	for k, v := range ctx {
-		t.context[k] = v
-	}
+	maps.Copy(t.context, ctx)
 	return t
 }
 
+// ClearContext removes all context values.
 func (t *Table) ClearContext() *Table {
 	t.context = Item{}
 	return t
@@ -326,6 +337,7 @@ func (t *Table) ClearContext() *Table {
 
 // ─── High-level model-factory API ────────────────────────────────────────────
 
+// Create inserts a new item for the model.
 func (t *Table) Create(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -334,6 +346,7 @@ func (t *Table) Create(ctx context.Context, modelName string, properties Item, p
 	return m.Create(ctx, properties, params)
 }
 
+// Find queries a model by properties.
 func (t *Table) Find(ctx context.Context, modelName string, properties Item, params *Params) (*Result, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -342,6 +355,7 @@ func (t *Table) Find(ctx context.Context, modelName string, properties Item, par
 	return m.Find(ctx, properties, params)
 }
 
+// Get fetches a single model item.
 func (t *Table) Get(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -350,6 +364,7 @@ func (t *Table) Get(ctx context.Context, modelName string, properties Item, para
 	return m.Get(ctx, properties, params)
 }
 
+// Remove deletes a model item.
 func (t *Table) Remove(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -358,6 +373,7 @@ func (t *Table) Remove(ctx context.Context, modelName string, properties Item, p
 	return m.Remove(ctx, properties, params)
 }
 
+// Scan scans a model with optional filters.
 func (t *Table) Scan(ctx context.Context, modelName string, properties Item, params *Params) (*Result, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -366,6 +382,7 @@ func (t *Table) Scan(ctx context.Context, modelName string, properties Item, par
 	return m.Scan(ctx, properties, params)
 }
 
+// Update updates a model item.
 func (t *Table) Update(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -374,6 +391,7 @@ func (t *Table) Update(ctx context.Context, modelName string, properties Item, p
 	return m.Update(ctx, properties, params)
 }
 
+// Upsert updates or creates a model item.
 func (t *Table) Upsert(ctx context.Context, modelName string, properties Item, params *Params) (Item, error) {
 	m, err := t.GetModel(modelName)
 	if err != nil {
@@ -384,32 +402,39 @@ func (t *Table) Upsert(ctx context.Context, modelName string, properties Item, p
 
 // ─── Low-level item API (mirrors JS table.getItem / putItem etc.) ─────────────
 
+// GetItem reads a raw item (generic model).
 func (t *Table) GetItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.getItem(ctx, properties, params)
 }
 
+// PutItem writes a raw item (generic model).
 func (t *Table) PutItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.putItem(ctx, properties, params)
 }
 
+// DeleteItem deletes a raw item (generic model).
 func (t *Table) DeleteItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.deleteItem(ctx, properties, params)
 }
 
+// QueryItems queries raw items (generic model).
 func (t *Table) QueryItems(ctx context.Context, properties Item, params *Params) (*Result, error) {
 	return t.schemaMgr.genericModel.queryItems(ctx, properties, params)
 }
 
+// ScanItems scans raw items (generic model).
 func (t *Table) ScanItems(ctx context.Context, properties Item, params *Params) (*Result, error) {
 	return t.schemaMgr.genericModel.scanItems(ctx, properties, params)
 }
 
+// UpdateItem updates a raw item (generic model).
 func (t *Table) UpdateItem(ctx context.Context, properties Item, params *Params) (Item, error) {
 	return t.schemaMgr.genericModel.updateItem(ctx, properties, params)
 }
 
 // ─── Batch operations ─────────────────────────────────────────────────────────
 
+// BatchGet executes a BatchGetItem request.
 func (t *Table) BatchGet(ctx context.Context, batch map[string]any, params *Params) (any, error) {
 	if len(batch) == 0 {
 		return []Item{}, nil
@@ -479,7 +504,7 @@ func (t *Table) BatchGet(ctx context.Context, batch map[string]any, params *Para
 					return nil, nil
 				}
 				if retries > 11 {
-					return nil, fmt.Errorf("too many unprocessed items after retries")
+					return nil, errors.New("too many unprocessed items after retries")
 				}
 				time.Sleep(time.Duration(10*(1<<retries)) * time.Millisecond)
 				retries++
@@ -491,6 +516,7 @@ func (t *Table) BatchGet(ctx context.Context, batch map[string]any, params *Para
 	return result, nil
 }
 
+// BatchWrite executes a BatchWriteItem request.
 func (t *Table) BatchWrite(ctx context.Context, batch map[string]any, params *Params) (bool, error) {
 	if len(batch) == 0 {
 		return true, nil
@@ -508,7 +534,7 @@ func (t *Table) BatchWrite(ctx context.Context, batch map[string]any, params *Pa
 			if unprocessed, ok := data["UnprocessedItems"].(map[string]any); ok && len(unprocessed) > 0 {
 				batch["RequestItems"] = unprocessed
 				if retries > 11 {
-					return false, fmt.Errorf("too many unprocessed items after retries")
+					return false, errors.New("too many unprocessed items after retries")
 				}
 				time.Sleep(time.Duration(10*(1<<retries)) * time.Millisecond)
 				retries++
@@ -522,6 +548,7 @@ func (t *Table) BatchWrite(ctx context.Context, batch map[string]any, params *Pa
 
 // ─── Transact ─────────────────────────────────────────────────────────────────
 
+// Transact executes a transaction (write/get).
 func (t *Table) Transact(ctx context.Context, op string, transaction map[string]any, params *Params) (any, error) {
 	if params == nil {
 		params = &Params{}
@@ -567,6 +594,7 @@ func (t *Table) Transact(ctx context.Context, op string, transaction map[string]
 
 // ─── GroupByType ──────────────────────────────────────────────────────────────
 
+// GroupByType groups items by type field.
 func (t *Table) GroupByType(items []Item, params *Params) map[string][]Item {
 	if params == nil {
 		params = &Params{}
@@ -691,10 +719,8 @@ func (t *Table) Exists(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, name := range tables {
-		if name == t.Name {
-			return true, nil
-		}
+	if slices.Contains(tables, t.Name) {
+		return true, nil
 	}
 	return false, nil
 }
@@ -718,16 +744,18 @@ type TableDefinition struct {
 	ProvisionedThroughput  *types.ProvisionedThroughput
 }
 
+// GetTableDefinition builds a DynamoDB table definition.
 func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *TableDefinition {
 	def := &TableDefinition{}
-	if provisioned != nil &&
+	switch {
+	case provisioned != nil &&
 		(provisioned.ReadCapacityUnits == nil || *provisioned.ReadCapacityUnits == 0) &&
-		(provisioned.WriteCapacityUnits == nil || *provisioned.WriteCapacityUnits == 0) {
+		(provisioned.WriteCapacityUnits == nil || *provisioned.WriteCapacityUnits == 0):
 		def.BillingMode = types.BillingModePayPerRequest
-	} else if provisioned != nil {
+	case provisioned != nil:
 		def.BillingMode = types.BillingModeProvisioned
 		def.ProvisionedThroughput = provisioned
-	} else {
+	default:
 		def.BillingMode = types.BillingModePayPerRequest
 	}
 
@@ -760,7 +788,7 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 				proj.NonKeyAttributes = nonKeyAttrs
 			}
 			gsi := types.GlobalSecondaryIndex{
-				IndexName:  strPtr(name),
+				IndexName:  aws.String(name),
 				Projection: &proj,
 			}
 			if provisioned != nil {
@@ -773,7 +801,7 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 
 		if idx.Hash != "" {
 			keys = append(keys, types.KeySchemaElement{
-				AttributeName: strPtr(idx.Hash),
+				AttributeName: aws.String(idx.Hash),
 				KeyType:       types.KeyTypeHash,
 			})
 			if !attributes[idx.Hash] {
@@ -782,22 +810,23 @@ func (t *Table) GetTableDefinition(provisioned *types.ProvisionedThroughput) *Ta
 					at = types.ScalarAttributeTypeN
 				}
 				def.AttributeDefinitions = append(def.AttributeDefinitions,
-					types.AttributeDefinition{AttributeName: strPtr(idx.Hash), AttributeType: at})
+					types.AttributeDefinition{AttributeName: aws.String(idx.Hash), AttributeType: at})
 				attributes[idx.Hash] = true
 			}
 		}
 		if idx.Sort != "" {
 			keys = append(keys, types.KeySchemaElement{
-				AttributeName: strPtr(idx.Sort),
+				AttributeName: aws.String(idx.Sort),
 				KeyType:       types.KeyTypeRange,
 			})
+			_ = keys
 			if !attributes[idx.Sort] {
 				at := types.ScalarAttributeTypeS
 				if t.getAttributeType(idx.Sort) == "number" {
 					at = types.ScalarAttributeTypeN
 				}
 				def.AttributeDefinitions = append(def.AttributeDefinitions,
-					types.AttributeDefinition{AttributeName: strPtr(idx.Sort), AttributeType: at})
+					types.AttributeDefinition{AttributeName: aws.String(idx.Sort), AttributeType: at})
 				attributes[idx.Sort] = true
 			}
 		}
@@ -892,21 +921,21 @@ func (t *Table) UpdateTable(ctx context.Context, params *UpdateTableParams) erro
 		}
 
 		keySchema := []types.KeySchemaElement{
-			{AttributeName: strPtr(c.Hash), KeyType: types.KeyTypeHash},
+			{AttributeName: aws.String(c.Hash), KeyType: types.KeyTypeHash},
 		}
 		attrDefs := []types.AttributeDefinition{
-			{AttributeName: strPtr(c.Hash), AttributeType: types.ScalarAttributeTypeS},
+			{AttributeName: aws.String(c.Hash), AttributeType: types.ScalarAttributeTypeS},
 		}
 		if c.Sort != "" {
 			keySchema = append(keySchema, types.KeySchemaElement{
-				AttributeName: strPtr(c.Sort), KeyType: types.KeyTypeRange,
+				AttributeName: aws.String(c.Sort), KeyType: types.KeyTypeRange,
 			})
 			attrDefs = append(attrDefs, types.AttributeDefinition{
-				AttributeName: strPtr(c.Sort), AttributeType: types.ScalarAttributeTypeS,
+				AttributeName: aws.String(c.Sort), AttributeType: types.ScalarAttributeTypeS,
 			})
 		}
 		gsi := types.CreateGlobalSecondaryIndexAction{
-			IndexName:  strPtr(c.Name),
+			IndexName:  aws.String(c.Name),
 			KeySchema:  keySchema,
 			Projection: proj,
 		}
@@ -921,14 +950,14 @@ func (t *Table) UpdateTable(ctx context.Context, params *UpdateTableParams) erro
 	case params.Remove != nil:
 		input.GlobalSecondaryIndexUpdates = []types.GlobalSecondaryIndexUpdate{
 			{Delete: &types.DeleteGlobalSecondaryIndexAction{
-				IndexName: strPtr(params.Remove.Name),
+				IndexName: aws.String(params.Remove.Name),
 			}},
 		}
 
 	case params.Update != nil:
 		u := params.Update
 		update := types.UpdateGlobalSecondaryIndexAction{
-			IndexName: strPtr(u.Name),
+			IndexName: aws.String(u.Name),
 		}
 		if u.Provisioned != nil {
 			update.ProvisionedThroughput = u.Provisioned
@@ -1190,7 +1219,7 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 			return nil, NewError("Provisioning Throughput Exception", WithCode(ErrRuntime), WithCause(execErr))
 		}
 		if strings.Contains(errMsg, "TransactionCanceledException") {
-			return nil, NewError("Transaction Cancelled", WithCode(ErrRuntime), WithCause(execErr))
+			return nil, NewError("Transaction Canceled", WithCode(ErrRuntime), WithCause(execErr))
 		}
 		return nil, NewError(fmt.Sprintf(`OneTable execute failed "%s" for "%s": %s`, op, modelName, errMsg),
 			WithCode(ErrRuntime), WithCause(execErr))
@@ -1279,7 +1308,7 @@ func (t *Table) decrypt(text string) (string, error) {
 		return "", err
 	}
 	if len(data) < gcm.NonceSize() {
-		return "", fmt.Errorf("ciphertext too short")
+		return "", errors.New("ciphertext too short")
 	}
 	nonce, ciphertext := data[:gcm.NonceSize()], data[gcm.NonceSize():]
 	plain, err := gcm.Open(nil, nonce, ciphertext, nil)
@@ -1292,7 +1321,7 @@ func (t *Table) decrypt(text string) (string, error) {
 // ─── marshall / unmarshall helpers ────────────────────────────────────────────
 
 // unmarshallItem converts a raw DynamoDB attribute value map into a plain Go Item.
-// If the input is already a plain map (i.e. not marshalled), it is returned as-is.
+// If the input is already a plain map (i.e. not marshaled), it is returned as-is.
 func (t *Table) unmarshallItem(raw map[string]any) Item {
 	if raw == nil {
 		return nil
@@ -1300,7 +1329,7 @@ func (t *Table) unmarshallItem(raw map[string]any) Item {
 	// attempt to detect DynamoDB typed format {"S": "value"} by checking first value
 	for _, v := range raw {
 		if _, ok := v.(map[string]any); ok {
-			// likely marshalled – attempt unmarshal
+			// likely marshaled – attempt unmarshal
 			avMap := make(map[string]types.AttributeValue, len(raw))
 			for k, val := range raw {
 				avMap[k] = anyToAV(val)
@@ -1369,21 +1398,26 @@ func (t *Table) generate(gen string) any {
 	default:
 		if strings.HasPrefix(gen, "uid(") {
 			n := 10
-			fmt.Sscanf(gen, "uid(%d)", &n)
+			if _, err := fmt.Sscanf(gen, "uid(%d)", &n); err != nil {
+				return t.UID(n)
+			}
 			return t.UID(n)
 		}
 		return t.UUID()
 	}
 }
 
+// UUID returns a UUID string.
 func (t *Table) UUID() string {
 	return uid.UUID()
 }
 
+// ULID returns a ULID string.
 func (t *Table) ULID() string {
 	return ulid.New().String()
 }
 
+// UID returns a random UID string of size.
 func (t *Table) UID(size int) string {
 	return uid.UID(size)
 }
@@ -1426,11 +1460,11 @@ func buildPutInput(cmd Item) (*ddb.PutItemInput, error) {
 	if item, ok := cmd["Item"].(map[string]types.AttributeValue); ok {
 		input.Item = item
 	} else if itemMap, ok := cmd["Item"].(Item); ok {
-		marshalled, err := marshallForDynamo(itemMap)
+		marshaled, err := marshallForDynamo(itemMap)
 		if err != nil {
 			return nil, err
 		}
-		input.Item = marshalled
+		input.Item = marshaled
 	}
 	if ce, ok := cmd["ConditionExpression"].(string); ok {
 		input.ConditionExpression = &ce
@@ -1620,8 +1654,6 @@ func toIntAny(v any) (int, bool) {
 	return 0, false
 }
 
-func strPtr(s string) *string { return &s }
-
 // toAnySlice converts []any, []Item (= []map[string]any), etc. to []any.
 func toAnySlice(v any) []any {
 	switch s := v.(type) {
@@ -1641,23 +1673,6 @@ func toAnySlice(v any) []any {
 // These convert the generic Item command maps (which hold types.AttributeValue
 // values directly) into properly-typed AWS SDK inputs without JSON round-trips.
 
-func extractAVMap(m map[string]any, key string) map[string]types.AttributeValue {
-	switch v := m[key].(type) {
-	case map[string]types.AttributeValue:
-		return v
-	}
-	return nil
-}
-
-func extractAVMapItem(m map[string]any, key string) map[string]types.AttributeValue {
-	return extractAVMap(m, key)
-}
-
-func extractString(m map[string]any, key string) string {
-	s, _ := m[key].(string)
-	return s
-}
-
 func extractStringPtr(m map[string]any, key string) *string {
 	s, ok := m[key].(string)
 	if !ok || s == "" {
@@ -1675,9 +1690,6 @@ func extractAVMapValues(m map[string]any, key string) map[string]types.Attribute
 	v, _ := m[key].(map[string]types.AttributeValue)
 	return v
 }
-
-// cmdToMap converts an Item to map[string]any (they are the same type but help readability).
-func cmdToMap(cmd Item) map[string]any { return map[string]any(cmd) }
 
 // buildTransactWriteInput builds a TransactWriteItemsInput from the generic transaction map.
 // The transaction map has the shape: {"TransactItems": [{"Put": cmd}, {"Update": cmd}, ...]}
@@ -1806,8 +1818,8 @@ func buildBatchGetInput(cmd Item) (*ddb.BatchGetItemInput, error) {
 		ka := types.KeysAndAttributes{}
 		if keys, ok := entry["Keys"].([]any); ok {
 			for _, k := range keys {
-				switch kv := k.(type) {
-				case map[string]types.AttributeValue:
+				kv, ok := k.(map[string]types.AttributeValue)
+				if ok {
 					ka.Keys = append(ka.Keys, kv)
 				}
 			}

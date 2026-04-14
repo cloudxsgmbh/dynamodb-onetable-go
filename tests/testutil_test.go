@@ -7,14 +7,15 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
@@ -24,8 +25,7 @@ import (
 // ─── regexps ─────────────────────────────────────────────────────────────────
 
 var (
-	reULID  = regexp.MustCompile(`^[0-9A-Z]{26}$`)
-	reEmail = regexp.MustCompile(`^[^@]+@[^@]+\.[^@]+$`)
+	reULID = regexp.MustCompile(`^[0-9A-Z]{26}$`)
 )
 
 // ─── mock helpers ─────────────────────────────────────────────────────────────
@@ -86,19 +86,17 @@ func applyUpdateExpression(
 
 	// process SET
 	if setClause, ok := clauses["set"]; ok {
-		for _, assignment := range strings.Split(setClause, ",") {
+		for assignment := range strings.SplitSeq(setClause, ",") {
 			assignment = strings.TrimSpace(assignment)
 			if assignment == "" {
 				continue
 			}
-			eqIdx := strings.Index(assignment, "=")
-			if eqIdx < 0 {
+			lhs, rhs, ok := strings.Cut(assignment, "=")
+			if !ok {
 				continue
 			}
-			lhs := strings.TrimSpace(assignment[:eqIdx])
-			rhs := strings.TrimSpace(assignment[eqIdx+1:])
-			attr := resolveName(lhs)
-			val := resolveVal(rhs)
+			attr := resolveName(strings.TrimSpace(lhs))
+			val := resolveVal(strings.TrimSpace(rhs))
 			if val != nil {
 				item[attr] = val
 			}
@@ -107,7 +105,7 @@ func applyUpdateExpression(
 
 	// process REMOVE
 	if removeClause, ok := clauses["remove"]; ok {
-		for _, tok := range strings.Split(removeClause, ",") {
+		for tok := range strings.SplitSeq(removeClause, ",") {
 			attr := resolveName(strings.TrimSpace(tok))
 			if attr != "" {
 				delete(item, attr)
@@ -117,7 +115,7 @@ func applyUpdateExpression(
 
 	// process ADD (numeric increment / set add — simplified)
 	if addClause, ok := clauses["add"]; ok {
-		for _, assignment := range strings.Split(addClause, ",") {
+		for assignment := range strings.SplitSeq(addClause, ",") {
 			assignment = strings.TrimSpace(assignment)
 			parts := strings.Fields(assignment)
 			if len(parts) < 2 {
@@ -254,15 +252,13 @@ func evalFilter(
 
 	// comparison operators: attr OP :val
 	for _, op := range []string{"<>", "<=", ">=", "<", ">", "="} {
-		idx := strings.Index(expr, op)
-		if idx < 0 {
+		lhs, rhs, ok := strings.Cut(expr, op)
+		if !ok {
 			continue
 		}
-		lhs := strings.TrimSpace(expr[:idx])
-		rhs := strings.TrimSpace(expr[idx+len(op):])
-		attr := resolveName(lhs)
+		attr := resolveName(strings.TrimSpace(lhs))
 		itemVal := getItemVal(attr)
-		expected := avStr(resolveVal(rhs))
+		expected := avStr(resolveVal(strings.TrimSpace(rhs)))
 		switch op {
 		case "=":
 			return itemVal == expected
@@ -286,9 +282,10 @@ func evalFilter(
 func balanced(s string) bool {
 	depth := 0
 	for _, c := range s {
-		if c == '(' {
+		switch c {
+		case '(':
 			depth++
-		} else if c == ')' {
+		case ')':
 			depth--
 			if depth < 0 {
 				return false
@@ -339,8 +336,7 @@ func conditionPasses(
 	return evalFilter(item, condExpr, names, v)
 }
 
-func isULID(s string) bool  { return reULID.MatchString(s) }
-func isEmail(s string) bool { return reEmail.MatchString(s) }
+func isULID(s string) bool { return reULID.MatchString(s) }
 
 // ─── fullMock ─────────────────────────────────────────────────────────────────
 
@@ -394,7 +390,7 @@ func (m *fullMock) PutItem(_ context.Context, p *ddb.PutItemInput, _ ...func(*dd
 			existing = map[string]types.AttributeValue{}
 		}
 		if !conditionPasses(existing, cond, p.ExpressionAttributeNames, p.ExpressionAttributeValues) {
-			return nil, fmt.Errorf("ConditionalCheckFailedException: condition not met")
+			return nil, errors.New("ConditionalCheckFailedException: condition not met")
 		}
 	}
 	t[k] = p.Item
@@ -430,12 +426,10 @@ func (m *fullMock) UpdateItem(_ context.Context, p *ddb.UpdateItemInput, _ ...fu
 	// check condition
 	cond := deref(p.ConditionExpression)
 	if cond != "" && !conditionPasses(existing, cond, p.ExpressionAttributeNames, p.ExpressionAttributeValues) {
-		return nil, fmt.Errorf("ConditionalCheckFailedException: condition not met for update")
+		return nil, errors.New("ConditionalCheckFailedException: condition not met for update")
 	}
 	// merge key back
-	for kk, vv := range p.Key {
-		existing[kk] = vv
-	}
+	maps.Copy(existing, p.Key)
 	// apply UpdateExpression
 	if p.UpdateExpression != nil {
 		applyUpdateExpression(existing, deref(p.UpdateExpression), p.ExpressionAttributeNames, p.ExpressionAttributeValues)
@@ -447,7 +441,7 @@ func (m *fullMock) UpdateItem(_ context.Context, p *ddb.UpdateItemInput, _ ...fu
 func (m *fullMock) Query(_ context.Context, p *ddb.QueryInput, _ ...func(*ddb.Options)) (*ddb.QueryOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var all []map[string]types.AttributeValue
+	all := make([]map[string]types.AttributeValue, 0, len(m.tbl(deref(p.TableName))))
 	for _, v := range m.tbl(deref(p.TableName)) {
 		all = append(all, v)
 	}
@@ -470,7 +464,7 @@ func (m *fullMock) Query(_ context.Context, p *ddb.QueryInput, _ ...func(*ddb.Op
 func (m *fullMock) Scan(_ context.Context, p *ddb.ScanInput, _ ...func(*ddb.Options)) (*ddb.ScanOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var all []map[string]types.AttributeValue
+	all := make([]map[string]types.AttributeValue, 0, len(m.tbl(deref(p.TableName))))
 	for _, v := range m.tbl(deref(p.TableName)) {
 		all = append(all, v)
 	}
@@ -535,7 +529,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					existing = map[string]types.AttributeValue{}
 				}
 				if !conditionPasses(existing, cond, ti.Put.ExpressionAttributeNames, ti.Put.ExpressionAttributeValues) {
-					return nil, fmt.Errorf("TransactionCanceledException: condition failed for Put")
+					return nil, errors.New("TransactionCanceledException: condition failed for Put")
 				}
 			}
 		case ti.Update != nil:
@@ -547,7 +541,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					existing = map[string]types.AttributeValue{}
 				}
 				if !conditionPasses(existing, cond, ti.Update.ExpressionAttributeNames, ti.Update.ExpressionAttributeValues) {
-					return nil, fmt.Errorf("TransactionCanceledException: condition failed for Update")
+					return nil, errors.New("TransactionCanceledException: condition failed for Update")
 				}
 			}
 		case ti.Delete != nil:
@@ -559,7 +553,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					existing = map[string]types.AttributeValue{}
 				}
 				if !conditionPasses(existing, cond, ti.Delete.ExpressionAttributeNames, ti.Delete.ExpressionAttributeValues) {
-					return nil, fmt.Errorf("TransactionCanceledException: condition failed for Delete")
+					return nil, errors.New("TransactionCanceledException: condition failed for Delete")
 				}
 			}
 		}
@@ -578,9 +572,7 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 			if existing == nil {
 				existing = map[string]types.AttributeValue{}
 			}
-			for kk, vv := range ti.Update.Key {
-				existing[kk] = vv
-			}
+			maps.Copy(existing, ti.Update.Key)
 			if ti.Update.UpdateExpression != nil {
 				applyUpdateExpression(existing, deref(ti.Update.UpdateExpression),
 					ti.Update.ExpressionAttributeNames, ti.Update.ExpressionAttributeValues)
@@ -949,13 +941,6 @@ func assertPresent(t *testing.T, item ot.Item, key string) {
 	}
 }
 
-func assertNil(t *testing.T, item ot.Item) {
-	t.Helper()
-	if item != nil {
-		t.Errorf("expected nil item, got %v", item)
-	}
-}
-
 // toAnySlice converts []any, []map[string]any etc. to []any.
 func toAnySlice(v any) []any {
 	switch s := v.(type) {
@@ -1001,13 +986,12 @@ func assertErrCode(t *testing.T, err error, code ot.ErrorCode) {
 
 func bg() context.Context { return context.Background() }
 
-// storeRaw marshals a plain Item and stores it in the mock at the given table.
-func storeRaw(mock *fullMock, table string, item ot.Item) {
-	av, _ := attributevalue.MarshalMap(item)
-	mock.mu.Lock()
-	mock.tbl(table)[itemKey(av)] = av
-	mock.mu.Unlock()
+func truePtr() *bool {
+	b := true
+	return &b
 }
 
-// boolPtr returns a pointer to a bool.
-func boolPtr(b bool) *bool { return &b }
+func falsePtr() *bool {
+	b := false
+	return &b
+}
