@@ -16,6 +16,9 @@ fmt:
 vet:
 	go vet ./...
 
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
 ## tidy: tidy go modules
 tidy:
 	go mod tidy
