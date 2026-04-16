@@ -39,7 +39,7 @@ func logLine(level, msg string, ctx map[string]any) {
 		log.Printf("[%s] %s", level, msg)
 		return
 	}
-	b, err := json.MarshalIndent(ctx, "", "  ")
+	b, err := json.Marshal(ctx)
 	if err != nil {
 		log.Printf("[%s] %s %v", level, msg, ctx)
 		return
