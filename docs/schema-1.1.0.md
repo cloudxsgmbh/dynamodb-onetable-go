@@ -22,54 +22,55 @@ Schemas may be stored in the data table and thus the table becomes self-describi
 
 ```json
 {
-    "version": "0.1.0",
-    "format": "onetable:1.1.0",
-    "indexes": {
-        "primary": { "hash": "PK", "sort": "SK" },
-        "GSI1": { "hash": "GS1PK", "sort": "GS1SK" }
+  "version": "0.1.0",
+  "format": "onetable:1.1.0",
+  "indexes": {
+    "primary": { "hash": "PK", "sort": "SK" },
+    "GSI1": { "hash": "GS1PK", "sort": "GS1SK" }
+  },
+  "params": {
+    "typeField": "_type"
+  },
+  "models": {
+    "Account": {
+      "PK": { "type": "string", "value": "account#${name}" },
+      "SK": { "type": "string", "value": "account#" },
+      "name": { "type": "string", "required": true }
     },
-    "params": {
-        "typeField": "_type"
+    "User": {
+      "PK": { "type": "string", "value": "account#${accountName}" },
+      "SK": { "type": "string", "value": "user#${email}" },
+      "accountName": { "type": "string" },
+      "email": { "type": "string", "required": true }
     },
-    "models": {
-        "Account": {
-            "PK":          { "type": "string", "value": "account#${name}" },
-            "SK":          { "type": "string", "value": "account#" },
-            "name":        { "type": "string", "required": true }
-        },
-        "User": {
-            "PK":          { "type": "string", "value": "account#${accountName}" },
-            "SK":          { "type": "string", "value": "user#${email}" },
-            "accountName": { "type": "string" },
-            "email":       { "type": "string", "required": true }
-        },
-        "Post": {
-            "PK":          { "value": "post#${id}" },
-            "SK":          { "value": "user#${email}" },
-            "id":          { "type": "string" },
-            "message":     { "type": "string" },
-            "email":       { "type": "string" }
+    "Post": {
+      "PK": { "value": "post#${id}" },
+      "SK": { "value": "user#${email}" },
+      "id": { "type": "string" },
+      "message": { "type": "string" },
+      "email": { "type": "string" }
+    }
+  },
+  "queries": {
+    "Get photos liked by a user": {
+      "limit": 100,
+      "index": "gs1",
+      "model": "Like",
+      "filters": [
+        {
+          "field": "username",
+          "type": "string",
+          "operation": "Equal",
+          "value": "ashley",
+          "combine": "And"
         }
-    },
-    "queries": {
-        "Get photos liked by a user": {
-            "limit": 100,
-            "index": "gs1",
-            "model": "Like",
-            "filters": [ {
-                "field": "username",
-                "type": "string",
-                "operation": "Equal",
-                "value": "ashley",
-                "combine": "And"
-            } ],
-            "operation": "Begins with",
-            "schema": "Current",
-            "type": "Entity"
-        }
-    },
-    "items": [
-    ]
+      ],
+      "operation": "Begins with",
+      "schema": "Current",
+      "type": "Entity"
+    }
+  },
+  "items": []
 }
 ```
 
@@ -87,13 +88,12 @@ A OneTable schema is an Object Map with a set of mandatory and optional top-leve
 
 A OneTable schema MUST have the following top-level properties:
 
-* format
-* indexes
-* items
-* models
-* params
-* queries
-* version
+- format
+- indexes
+- models
+- params
+- queries
+- version
 
 The `format` property MUST be set to 'onetable:1.1.0' for compatibility with this specification. The version portion of the format property is a [SemVer](https://semver.org/) compatible version number and MUST be used according to SemVer when loading schemas to assess the compatibility of the schema contents.
 
@@ -107,10 +107,10 @@ The `indexes` property MUST be an object map containing index definitions. Each 
 
 A OneTable schema MAY have the following optional top-level properties:
 
-* description
-* extensions
-* items
-* queries
+- description
+- extensions
+- items
+- queries
 
 The `description` property MAY be set to a short description outlining the purpose and/or scope of the schema.
 
@@ -122,7 +122,6 @@ To accommodate custom extensions, applications and tools MAY store custom proper
 
 All other properties are RESERVED.
 
-
 ## Indexes
 
 The `indexes` map contains definitions for the DynamoDB indexes used by the schema. These definitions specify the attribute names of the primary and sort keys and the attribute projections utilized by the index. The `indexes` property MAY be used by tools to create DynamoDB tables to host the schema and data items.
@@ -131,30 +130,29 @@ The `indexes` map MUST contain a `primary` property that describes the attribute
 
 Each `index` MUST contain the following properties:
 
-* hash
-* sort
+- hash
+- sort
 
 The `hash` property specifies the DynamoDB attribute name of the partition (hash) key. The `sort` property specifies the attribute name of the sort key.
 
 Each `index` that corresponds to a DynamoDB Global Secondary Index (GSI) MAY contain the following property:
 
-* project
+- project
 
 The `project` property describes which attributes are projected to the GSI. It MUST be set to the one of the following values:
 
-* all
-* keys
-* [list of attributes]
+- all
+- keys
+- [list of attributes]
 
 The `all` value indicates that all attributes are projected to the GSI. The `keys` value indicates that only key values are projected to the GSI. If set to a `list` the property value MUST be a valid JavaScript list of attribute names that are projected to the GSI.
-
 
 ## Params
 
 The `params` map contains schema configuration that is vital to interpret table data. The `params` map MAY include the following properties:
 
-* typeField
-* isoDates
+- typeField
+- isoDates
 
 The `typeField` property MAY be set to a string that contains the name of the DynamoDB attribute that specifies the application entity model name. This name is used an index into the `models` map when interpreting table data. If unset, this defaults to `_type`.
 
@@ -162,23 +160,21 @@ The `isoDates` property MAY be set to true to specify that dates will be stored 
 
 The `params` map MAY contain the following optional properties that are used by the OneTable library and MUST be considered RESERVED. All other values in the params collection MUST be considered RESERVED.
 
-* createdField
-* hidden
-* nulls
-* timestamps
-* updatedField
-
+- createdField
+- hidden
+- nulls
+- timestamps
+- updatedField
 
 ## Models
 
-The `models` map is comprised of properties for each of the application's entities. The application entities are object maps that define the entity's fields. The entity name MUST be set to a single word property name that begins with an alphabeta letter or '_'. By convention, these typically begin with an upper case letter.
+The `models` map is comprised of properties for each of the application's entities. The application entities are object maps that define the entity's fields. The entity name MUST be set to a single word property name that begins with an alphabeta letter or '\_'. By convention, these typically begin with an upper case letter.
 
 The model property names MUST conform to the regular expression:
 
 ```regex
 /^[a-zA-Z_]+[\w]*$/
 ```
-
 
 ## Model Entities
 
@@ -189,28 +185,28 @@ specified by its name in the `models` map.
 
 Each `entity` MUST contain the following property.
 
-* type
+- type
 
 The `type` property MUST take a string value set to one of the following data types:
 
-* array
-* binary
-* boolean
-* date
-* number
-* object
-* set
-* string
+- array
+- binary
+- boolean
+- date
+- number
+- object
+- set
+- string
 
 Date values will be encoded in table data according to the `params.isoDates` configuration property.
 
 Each `entity` MAY contain the following OPTIONAL properties.
 
-* default
-* required
-* uuid
-* validate
-* value
+- default
+- required
+- uuid
+- validate
+- value
 
 The `default` property provides a default value to be used for an attribute when creating a new entity item should that attribute's value not be specified. The value MAY be any JSON type that is compatible with the specified model's `type`.
 
@@ -230,22 +226,23 @@ The `value` string templates are similar to JavaScript string templates but are 
 The `value` template name MAY also be of the form:
 
     ${attribute:size}
+
 or
-    ${attribute:size:pad}
+${attribute:size:pad}
 
 where the name will be padded to the specified size using the given pad character (which default to '0'). This is useful for zero padding numbers so that they sort numerically.
 
 The following `entity` attributes are used by the OneTable library and MUST be considered RESERVED.
 All other values in the params collection MUST be considered RESERVED.
 
-* crypt
-* enum
-* filter
-* hidden
-* map
-* nulls
-* reference
-* unique
+- crypt
+- enum
+- filter
+- hidden
+- map
+- nulls
+- reference
+- unique
 
 ## Queries
 
@@ -253,12 +250,12 @@ The `queries` map contains saved DynamoDB queries. Each property in the `queries
 
 Each query MUST have the following properties
 
-* hash
-* index
-* limit
-* operation
-* schema
-* type
+- hash
+- index
+- limit
+- operation
+- schema
+- type
 
 The `hash` property defines the partition key value for the query.
 
@@ -268,13 +265,13 @@ The `limit` property specifies the maximum number of items for the query to retu
 
 The `operation` property specifies a sort key comparison operation for the query. It MUST be set to one of the following string values:
 
-* "Equal"
-* "Less than"
-* "Less than or equal"
-* "Greater than or equal"
-* "Greater than"
-* "Begins with"
-* "Between"
+- "Equal"
+- "Less than"
+- "Less than or equal"
+- "Greater than or equal"
+- "Greater than"
+- "Begins with"
+- "Between"
 
 The `schema` property MAY be set to a string containing the name of a schema for the query to utilize. Schema names are outside the scope of this specification.
 
@@ -283,8 +280,8 @@ query that is constrained by the `query.model` value.
 
 Each query MAY contain the follow properties:
 
-* filters
-* model
+- filters
+- model
 
 All other properties are RESERVED.
 
@@ -292,15 +289,15 @@ The `model` property MUST be present if the query `type` is 'Entity'. The `model
 
 The `filters` property specifies OPTIONAL additional query or scan filter expressions. If present, it MUST be set to an array of filter objects. Each filter MUST contain the following properties
 
-* field
-* operation
-* combine
-* type
-* value
+- field
+- operation
+- combine
+- type
+- value
 
 The `field` property MUST be the name of a table attribute. The `operation` MUST be one of the set of operations: `Equal`, `Not equal`, `Less than`, `Less than or equal`,
-              `Greater than or equal`, `Greater than`, `Between`, `Begins with`,
-              `Existing`, `Not Existing`, `Contains`, `Does not contain`.
+`Greater than or equal`, `Greater than`, `Between`, `Begins with`,
+`Existing`, `Not Existing`, `Contains`, `Does not contain`.
 The `combine` property must be set to `And` or `Or` and stipulates the boolean operation to combine with the prior filter. The `type` MUST be set to a Dynamo type from the set: `array`, `binary`, `boolean`, `buffer`, `date`, `number`, `object`, `set`, `string`. The `value` MUST be set to the filter comparision value.
 
 ## Example Queries
@@ -334,18 +331,16 @@ The `items` MAY contain a small amount of data to assist with visualizing the sc
 
 The `items` property MUST be an array data items. Each data item MUST be a valid instance of an application entity described in the `models` property.
 
-
 ### Participate
 
 All feedback, discussion, contributions and bug reports are very welcome.
 
-* [discussions](https://github.com/sensedeep/dynamodb-onetable/discussions)
-* [issues](https://github.com/sensedeep/dynamodb-onetable/issues)
+- [discussions](https://github.com/sensedeep/dynamodb-onetable/discussions)
+- [issues](https://github.com/sensedeep/dynamodb-onetable/issues)
 
 ### Contact
 
 You can contact me (Michael O'Brien) on Twitter at: [@mobstream](https://twitter.com/mobstream), or [email](mob-pub-18@sensedeep.com) and ready my [Blog](https://www.sensedeep.com/blog).
-
 
 ## References
 
