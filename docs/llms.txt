@@ -1,0 +1,39 @@
+# DynamoDB OneTable Go
+
+> Go port of [SenseDeep DynamoDB OneTable](https://github.com/sensedeep/dynamodb-onetable) — a single-table DynamoDB ORM with schema-driven models, field-level encryption, unique constraints, batch operations, and transactions. Uses AWS SDK v2.
+
+Package: `github.com/cloudxsgmbh/dynamodb-onetable-go`
+
+Key concepts: `Table` owns the schema, client, and context. `Model` represents one entity type (e.g. User, Order). `SchemaDef` declares indexes, models, and field definitions. `Item` is `map[string]any` — the universal input/output map. `Params` controls every API call (pagination, conditions, consistency, batch/transaction accumulation).
+
+All methods accept `context.Context` as first arg and optional `*Params` as last. Errors are `*OneTableError` or `*OneTableArgError` (see errors.md).
+
+## Quick Start
+
+- [Overview](overview.md): Core concepts, quick start example, document index
+- [Schema](schema.md): SchemaDef, IndexDef, FieldDef, value templates, nested schemas, FieldType constants
+- [Params](params.md): All operation parameters — batch, transaction, consistency, pagination, atomic ops, where, set expressions
+- [Where clauses](where.md): Filter/condition expression syntax with `${field}`, `{value}`, `@{var}` placeholders
+- [Errors](errors.md): OneTableError, OneTableArgError, error codes, common scenarios
+
+## API Reference
+
+- [Table methods](api/table.md): Convenience model wrappers, low-level item API, batch, transact, schema management, DDL, context, UID helpers, DynamoClient interface
+- [Model methods](api/model.md): Create, Get, Find, Update, Upsert, Remove, Scan, Init — with unique fields, pagination, parallel scan
+- [Batch operations](api/batch.md): BatchGet (100 items) and BatchWrite (25 items) — accumulate via Params.Batch, auto-retry unprocessed items
+- [Transaction operations](api/transact.md): Atomic read/write across up to 100 items — TransactWrite and TransactGet with conditions and GroupByType
+
+## Schema Specification
+
+- [Schema 1.1.0](schema-1.1.0.md): Formal schema specification (OneTable format)
+
+## Reference
+
+- [Table API (legacy)](table.md): Older table reference (content merged into api/table.md)
+- [Model API (legacy)](model.md): Older model reference (content merged into api/model.md)
+
+## Optional
+
+- [SenseDeep OneTable JS](https://github.com/sensedeep/dynamodb-onetable): Original JavaScript implementation (upstream)
+- [SenseDeep API docs](https://doc.onetable.io/api/table/overview/): JavaScript API documentation (reference for Go port parity)
+- [AWS DynamoDB Developer Guide](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/): Underlying DynamoDB concepts
