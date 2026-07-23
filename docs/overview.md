@@ -68,6 +68,18 @@ _ = email
 
 ## Documents
 
+### API Reference
+
+| Document | Contents |
+|----------|----------|
+| [api/](api/) | **API Reference** — organized by topic |
+| [api/table.md](api/table.md) | Table methods: convenience model wrappers, low-level item API, batch, transact, schema, DDL |
+| [api/model.md](api/model.md) | Model methods: Create / Get / Find / Update / Upsert / Remove / Scan / Init |
+| [api/batch.md](api/batch.md) | Batch operations: BatchGet / BatchWrite with examples |
+| [api/transact.md](api/transact.md) | Transaction operations: atomic reads and writes |
+
+### Reference
+
 | Document | Contents |
 |----------|----------|
 | [table.md](table.md) | `Table` — constructor, context, DDL, low-level item API, batch/transact |
