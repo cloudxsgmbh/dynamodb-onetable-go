@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/cloudxsgmbh/dynamodb-onetable-go/internal/logger"
 )
 
 const (
@@ -507,7 +508,7 @@ func (m *Model) run(ctx context.Context, op string, expr *expression) (Item, err
 
 	// return command without executing
 	if !expr.execute {
-		logInfo(m.table.log, fmt.Sprintf(`OneTable command for "%s" "%s" (not executed)`, op, m.Name),
+		logger.Info(fmt.Sprintf(`OneTable command for "%s" "%s" (not executed)`, op, m.Name),
 			map[string]any{"cmd": cmd, "op": op})
 		return cmd, nil
 	}
@@ -794,7 +795,7 @@ func (m *Model) transformReadBlock(op string, raw Item, properties Item, params 
 				if params != nil && !params.checked /* batch */ && params.Transaction == nil &&
 					params.Batch == nil && params.Fields == nil {
 					if m.table.warn {
-						logError(m.table.log, fmt.Sprintf(`Required field "%s" in model "%s" not in item`, name, m.Name), nil)
+						logger.Error(fmt.Sprintf(`Required field "%s" in model "%s" not in item`, name, m.Name))
 					}
 				}
 			}

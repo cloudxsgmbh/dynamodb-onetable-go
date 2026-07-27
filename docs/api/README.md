@@ -19,7 +19,7 @@ Complete API documentation for the `onetable` Go package.
 | Model registry | `GetModel`, `AddModel`, `RemoveModel`, `ListModels` |
 | Context | `GetContext`, `SetContext`, `AddContext`, `ClearContext` |
 | DDL | `CreateTable`, `DeleteTable`, `DescribeTable`, `Exists`, `ListTables`, `UpdateTable`, `GetTableDefinition` |
-| Client/logging | `SetClient`, `GetLog`, `SetLog` |
+| Client | `SetClient` |
 | UID helpers | `UUID`, `ULID`, `UID` |
 
 ---

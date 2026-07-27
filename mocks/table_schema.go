@@ -33,11 +33,6 @@ type MockTableSchema struct {
 	ListModelsResult       []string
 	SetClientFunc          func(onetable.DynamoClient)
 	SetClientCalls         []SetClientCall
-	GetLogFunc             func() onetable.Logger
-	GetLogCalls            []GetLogCall
-	GetLogResult           onetable.Logger
-	SetLogFunc             func(onetable.Logger)
-	SetLogCalls            []SetLogCall
 }
 
 type SetSchemaCall struct {
@@ -68,12 +63,6 @@ type ListModelsCall struct{}
 
 type SetClientCall struct {
 	Client onetable.DynamoClient
-}
-
-type GetLogCall struct{}
-
-type SetLogCall struct {
-	Logger onetable.Logger
 }
 
 func (m *MockTableSchema) SetSchema(ctx context.Context, schema *onetable.SchemaDef) (map[string]*onetable.IndexDef, error) {
@@ -135,20 +124,5 @@ func (m *MockTableSchema) SetClient(client onetable.DynamoClient) {
 	m.SetClientCalls = append(m.SetClientCalls, SetClientCall{Client: client})
 	if m.SetClientFunc != nil {
 		m.SetClientFunc(client)
-	}
-}
-
-func (m *MockTableSchema) GetLog() onetable.Logger {
-	m.GetLogCalls = append(m.GetLogCalls, GetLogCall{})
-	if m.GetLogFunc != nil {
-		return m.GetLogFunc()
-	}
-	return m.GetLogResult
-}
-
-func (m *MockTableSchema) SetLog(logger onetable.Logger) {
-	m.SetLogCalls = append(m.SetLogCalls, SetLogCall{Logger: logger})
-	if m.SetLogFunc != nil {
-		m.SetLogFunc(logger)
 	}
 }
