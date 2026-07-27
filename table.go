@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/cloudxsgmbh/dynamodb-onetable-go/internal/logger"
 	uid "github.com/cloudxsgmbh/dynamodb-onetable-go/internal/uid"
 	ulid "github.com/cloudxsgmbh/dynamodb-onetable-go/internal/ulid"
 )
@@ -68,11 +69,9 @@ type TableParams struct {
 	Name    string
 	Client  DynamoClient
 	Schema  *SchemaDef
-	Logger  Logger // nil → default (info+error only)
-	Verbose bool   // true → also log trace/data
-	Hidden  bool   // return hidden fields by default
-	Partial bool   // allow partial nested updates
-	Warn    bool   // log warnings for schema mismatches
+	Hidden  bool // return hidden fields by default
+	Partial bool // allow partial nested updates
+	Warn    bool // log warnings for schema mismatches
 	Crypto  map[string]*CryptoConfig
 	Context Item // table-level context (injected into every write)
 	Metrics MetricsCollector
@@ -103,7 +102,6 @@ type Table struct {
 	Name string
 
 	client DynamoClient
-	log    Logger
 	params *TableParams
 
 	// schema-derived settings (set via setSchemaParams)
@@ -163,16 +161,6 @@ func NewTable(params TableParams) (*Table, error) {
 		monitor:      params.Monitor,
 	}
 
-	// logging
-	switch {
-	case params.Logger != nil:
-		t.log = params.Logger
-	case params.Verbose:
-		t.log = verboseLogger{}
-	default:
-		t.log = defaultLogger{}
-	}
-
 	// client
 	if params.Client != nil {
 		t.client = params.Client
@@ -188,7 +176,7 @@ func NewTable(params TableParams) (*Table, error) {
 	// schema manager (may be nil schema)
 	t.schemaMgr = newSchemaManager(t, params.Schema)
 
-	logTrace(t.log, "Loading OneTable", nil)
+	logger.Debug("Loading OneTable")
 	return t, nil
 }
 
@@ -273,16 +261,6 @@ func (t *Table) ListModels() []string {
 // SetClient replaces the DynamoDB client used by the table after construction.
 func (t *Table) SetClient(client DynamoClient) {
 	t.client = client
-}
-
-// GetLog returns the Logger currently in use by the table.
-func (t *Table) GetLog() Logger {
-	return t.log
-}
-
-// SetLog replaces the Logger used by the table after construction.
-func (t *Table) SetLog(logger Logger) {
-	t.log = logger
 }
 
 // SaveSchema persists the current (or supplied) schema to the DynamoDB table.
@@ -997,7 +975,7 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 		return nil, NewArgError("Table has no DynamoDB client configured")
 	}
 
-	logInfo(t.log, fmt.Sprintf(`OneTable "%s" "%s"`, op, modelName), map[string]any{"cmd": cmd, "op": op})
+	logger.Info(fmt.Sprintf(`OneTable "%s" "%s"`, op, modelName), map[string]any{"cmd": cmd, "op": op})
 
 	var result Item
 	var execErr error

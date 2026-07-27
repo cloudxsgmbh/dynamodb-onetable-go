@@ -459,22 +459,6 @@ func (t *Table) SetClient(client DynamoClient)
 
 Replace the DynamoDB client after construction. Useful for swapping in a test double or rotating credentials.
 
-### GetLog
-
-```go
-func (t *Table) GetLog() Logger
-```
-
-Return the `Logger` currently in use by the table.
-
-### SetLog
-
-```go
-func (t *Table) SetLog(logger Logger)
-```
-
-Replace the `Logger` after construction.
-
 ---
 
 ## DDL operations

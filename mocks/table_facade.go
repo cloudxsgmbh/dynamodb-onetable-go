@@ -40,14 +40,6 @@ func (m *MockTable) SetClient(client onetable.DynamoClient) {
 	m.Schema.SetClient(client)
 }
 
-func (m *MockTable) GetLog() onetable.Logger {
-	return m.Schema.GetLog()
-}
-
-func (m *MockTable) SetLog(logger onetable.Logger) {
-	m.Schema.SetLog(logger)
-}
-
 func (m *MockTable) SaveSchema(ctx context.Context, schema *onetable.SchemaDef) error {
 	return m.Admin.SaveSchema(ctx, schema)
 }

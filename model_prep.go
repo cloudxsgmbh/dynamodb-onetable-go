@@ -8,6 +8,8 @@ package onetable
 import (
 	"regexp"
 	"strings"
+
+	"github.com/cloudxsgmbh/dynamodb-onetable-go/internal/logger"
 )
 
 // prepModel builds a fieldBlock from a raw FieldMap (schema definition).
@@ -46,7 +48,7 @@ func (m *Model) prepModel(schemaFields FieldMap, block *fieldBlock, parent *prep
 	for name, def := range schemaFields {
 		if def.Type == "" {
 			def.Type = FieldTypeString
-			logError(m.table.log, "Missing type field for "+name, nil)
+			logger.Error("Missing type field for " + name)
 		}
 
 		ft, err := checkType(def.Type, name, m.Name)

@@ -15,8 +15,6 @@ func NewTable(params TableParams) (*Table, error)
 | `Name` | `string` | **Required.** DynamoDB table name. |
 | `Client` | `DynamoClient` | AWS SDK v2 DynamoDB client (or any `DynamoClient`-compatible test double). |
 | `Schema` | `*SchemaDef` | Initial schema. May be set later with `SetSchema`. |
-| `Logger` | `Logger` | Custom logger. Defaults to a minimal stdout logger. |
-| `Verbose` | `bool` | Enable trace/data logging. |
 | `Hidden` | `bool` | Return hidden fields by default in all reads. |
 | `Partial` | `bool` | Allow partial nested-object updates by default. |
 | `Warn` | `bool` | Log schema warnings (missing required fields, unknown attrs). |
@@ -113,22 +111,6 @@ func (t *Table) SetClient(client DynamoClient)
 ```
 
 Replace the DynamoDB client after construction. Useful for swapping in a test double or rotating credentials.
-
-### GetLog
-
-```go
-func (t *Table) GetLog() Logger
-```
-
-Return the `Logger` currently in use by the table.
-
-### SetLog
-
-```go
-func (t *Table) SetLog(logger Logger)
-```
-
-Replace the `Logger` after construction. The new logger is used for all subsequent operations.
 
 ---
 
