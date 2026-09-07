@@ -1,5 +1,23 @@
 # Release notes
 
+# v0.9.0
+
+September 7, 2026
+
+- Upgrade dependencies
+
+# v0.8.0
+
+August 5, 2026
+
+- Upgrade dependencies
+
+# v0.7.0
+
+July 27, 2026
+
+- Replace legacy logging interface with JSON logger
+
 # v0.6.2
 
 July 23, 2026
