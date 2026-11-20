@@ -579,10 +579,11 @@ Generate a UUID v4-format string (fast, non-cryptographic).
 ### ULID
 
 ```go
-func (t *Table) ULID() string
+func (t *Table) ULID(when ...time.Time) string
 ```
 
 Generate a [ULID](https://github.com/ulid/spec) — time-sortable, cryptographically random, URL-safe. Preferred over UUID for primary keys.
+Pass a `time.Time` to use that timestamp, or omit it to use the current time. If multiple times are supplied, the first is used.
 
 ### UID
 

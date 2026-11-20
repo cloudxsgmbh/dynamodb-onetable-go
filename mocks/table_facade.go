@@ -3,6 +3,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	onetable "github.com/cloudxsgmbh/dynamodb-onetable-go"
@@ -176,8 +177,8 @@ func (m *MockTable) UUID() string {
 	return m.Items.UUID()
 }
 
-func (m *MockTable) ULID() string {
-	return m.Items.ULID()
+func (m *MockTable) ULID(when ...time.Time) string {
+	return m.Items.ULID(when...)
 }
 
 func (m *MockTable) UID(size int) string {
