@@ -1390,8 +1390,12 @@ func (t *Table) UUID() string {
 	return uid.UUID()
 }
 
-// ULID returns a ULID string.
-func (t *Table) ULID() string {
+// ULID returns a ULID string for the supplied time, or the current time if omitted.
+// If multiple times are supplied, the first is used.
+func (t *Table) ULID(when ...time.Time) string {
+	if len(when) > 0 {
+		return ulid.NewAt(when[0]).String()
+	}
 	return ulid.New().String()
 }
 

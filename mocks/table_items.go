@@ -3,6 +3,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	onetable "github.com/cloudxsgmbh/dynamodb-onetable-go"
 )
@@ -71,6 +72,7 @@ type MockTableItems struct {
 	UUIDCalls         []UUIDCall
 	UUIDResult        string
 	ULIDFunc          func() string
+	ULIDWithTimeFunc  func(...time.Time) string
 	ULIDCalls         []ULIDCall
 	ULIDResult        string
 	UIDFunc           func(int) string
@@ -177,7 +179,9 @@ type FetchCall struct {
 
 type UUIDCall struct{}
 
-type ULIDCall struct{}
+type ULIDCall struct {
+	Times []time.Time
+}
 
 type UIDCall struct {
 	Size int
@@ -311,8 +315,11 @@ func (m *MockTableItems) UUID() string {
 	return m.UUIDResult
 }
 
-func (m *MockTableItems) ULID() string {
-	m.ULIDCalls = append(m.ULIDCalls, ULIDCall{})
+func (m *MockTableItems) ULID(when ...time.Time) string {
+	m.ULIDCalls = append(m.ULIDCalls, ULIDCall{Times: append([]time.Time(nil), when...)})
+	if m.ULIDWithTimeFunc != nil {
+		return m.ULIDWithTimeFunc(when...)
+	}
 	if m.ULIDFunc != nil {
 		return m.ULIDFunc()
 	}
