@@ -1,5 +1,14 @@
 # Release notes
 
+# v0.13.0
+
+November 27, 2026
+
+- Add typed transactions for composing model writes, standalone condition checks, and cross-table operations in one atomic request; retain the map-based API.
+- Fix Query and Scan pagination, including continuation cursor propagation, terminal-page cursors, and numeric cursor precision.
+- Make `Limit` cap matching results across filtered pages by budgeting each subsequent request. This may read more evaluated items than a single-page limit; `MaxPages` still bounds pagination.
+- Improve transaction condition-check coverage and document the new transaction and pagination behavior.
+
 # v0.11.0
 
 November 2, 2026
