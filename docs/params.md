@@ -26,7 +26,7 @@ type Params struct { ... }
 | `Follow` | `*bool` | index default | Re-fetch each item from the primary index after a query. Useful for `KEYS_ONLY` GSIs. |
 | `Hidden` | `*bool` | table default | `true` → include hidden fields in the returned `Item`. `false` → exclude them explicitly. |
 | `Index` | `string` | `"primary"` | Name of the index to use. |
-| `Limit` | `int` | 0 (unlimited) | Maximum number of items for DynamoDB to read. Note: this is the DynamoDB scan limit, not the number of returned items after filtering. |
+| `Limit` | `int` | 0 (unlimited) | Maximum number of matching items accumulated by `Find` / `Scan`. Each DynamoDB Query / Scan request uses `Limit` as its evaluated-item cap; after a filtered page, OneTable sets the next request cap to the remaining result budget and follows continuation keys until the budget is met or no more pages remain. |
 | `Log` | `*bool` | `false` | Force logging of this API call at `info` level. |
 | `Many` | `bool` | `false` | Allow `Remove` to delete more than one matching item. |
 | `MaxPages` | `int` | 1000 | Maximum number of DynamoDB query/scan pages before stopping. Prevents infinite loops on large tables. |

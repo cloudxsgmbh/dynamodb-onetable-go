@@ -1076,8 +1076,9 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 			return nil, err
 		}
 		result = Item{
-			"Items": items,
-			"Count": int(out.Count),
+			"Items":        items,
+			"Count":        int(out.Count),
+			"ScannedCount": int(out.ScannedCount),
 		}
 		if out.LastEvaluatedKey != nil {
 			lek, err := unmarshallFromDynamo(out.LastEvaluatedKey)

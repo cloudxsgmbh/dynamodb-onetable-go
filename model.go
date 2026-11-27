@@ -582,6 +582,18 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 	pages := 0
 
 	for {
+		if params.Limit > 0 && pages > 0 {
+			used := len(rawItems)
+			if params.Count || params.Select == "COUNT" {
+				used = totalCount
+			}
+			remaining := params.Limit - used
+			if remaining <= 0 {
+				break
+			}
+			cmd["Limit"] = remaining
+		}
+
 		result, err := m.table.execute(ctx, m.Name, op, cmd, expr.properties, params)
 		if err != nil {
 			return nil, err
@@ -615,7 +627,11 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 			lastKey = lk
 		}
 
-		if params.Limit > 0 && len(rawItems) >= params.Limit {
+		limitUsed := len(rawItems)
+		if params.Count || params.Select == "COUNT" {
+			limitUsed = totalCount
+		}
+		if params.Limit > 0 && limitUsed >= params.Limit {
 			break
 		}
 		pages++
@@ -642,7 +658,6 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 			}
 		}
 	}
-
 	// parse response
 	var items []Item
 	if params.Parse {
