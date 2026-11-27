@@ -8,9 +8,11 @@ package onetable
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"math"
+	"math/big"
 	"regexp"
 	"slices"
 	"strconv"
@@ -26,6 +28,13 @@ const (
 	sanityPages   = 1000
 	followThreads = 10
 )
+
+type paginationPageData struct {
+	firstItemRaw        map[string]types.AttributeValue
+	lastEvaluatedKeyRaw map[string]types.AttributeValue
+}
+
+type paginationPageDataContextKey struct{}
 
 // Model represents a DynamoDB single-table entity.
 type Model struct {
@@ -578,17 +587,27 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 
 	var rawItems []Item
 	var lastKey Item
+	var firstItemRaw map[string]types.AttributeValue
 	var totalCount int
 	pages := 0
 
 	for {
-		result, err := m.table.execute(ctx, m.Name, op, cmd, expr.properties, params)
+		pageCtx := ctx
+		if pageCtx == nil {
+			pageCtx = context.Background()
+		}
+		pageData := &paginationPageData{}
+		pageCtx = context.WithValue(pageCtx, paginationPageDataContextKey{}, pageData)
+		result, err := m.table.execute(pageCtx, m.Name, op, cmd, expr.properties, params)
 		if err != nil {
 			return nil, err
 		}
 
 		if items, ok := result["Items"].([]Item); ok {
 			rawItems = append(rawItems, items...)
+		}
+		if firstItemRaw == nil {
+			firstItemRaw = pageData.firstItemRaw
 		}
 
 		if result["Count"] != nil {
@@ -610,9 +629,12 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 		}
 
 		lk, hasMore := result["LastEvaluatedKey"].(Item)
+		lastKey = lk
 		if hasMore {
-			cmd["ExclusiveStartKey"] = lk
-			lastKey = lk
+			if pageData.lastEvaluatedKeyRaw == nil {
+				return nil, fmt.Errorf("query/scan result is missing raw LastEvaluatedKey")
+			}
+			cmd["ExclusiveStartKey"] = pageData.lastEvaluatedKeyRaw
 		}
 
 		if params.Limit > 0 && len(rawItems) >= params.Limit {
@@ -629,17 +651,35 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 	if len(rawItems) > 0 && (params.Next != nil || params.Prev != nil) {
 		idx := m.selectIndex(params)
 		first := rawItems[0]
-		prev = Item{idx.Hash: first[idx.Hash]}
+		prev = Item{}
+		prevKeys := map[string]types.AttributeValue{}
+		addPrevKey := func(name string) {
+			if firstItemRaw != nil {
+				if value, ok := firstItemRaw[name]; ok {
+					prevKeys[name] = value
+					return
+				}
+			}
+			prev[name] = first[name]
+		}
+		addPrevKey(idx.Hash)
 		if idx.Sort != "" {
-			prev[idx.Sort] = first[idx.Sort]
+			addPrevKey(idx.Sort)
 		}
 		// also include primary keys if using non-primary index
 		if params.Index != "" && params.Index != "primary" {
 			pi := m.indexes["primary"]
-			prev[pi.Hash] = first[pi.Hash]
+			addPrevKey(pi.Hash)
 			if pi.Sort != "" {
-				prev[pi.Sort] = first[pi.Sort]
+				addPrevKey(pi.Sort)
 			}
+		}
+		if len(prevKeys) > 0 {
+			decoded, err := unmarshallCursorFromDynamo(prevKeys)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal Prev cursor: %w", err)
+			}
+			maps.Copy(prev, decoded)
 		}
 	}
 
@@ -657,7 +697,7 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 	result := &Result{Items: items}
 
 	if lastKey != nil {
-		result.Next = m.table.unmarshallItem(lastKey)
+		result.Next = lastKey
 	}
 	if prev != nil {
 		result.Prev = m.table.unmarshallItem(prev)
@@ -2150,4 +2190,46 @@ func unmarshallFromDynamo(av map[string]types.AttributeValue) (Item, error) {
 		return nil, err
 	}
 	return item, nil
+}
+
+// unmarshallCursorFromDynamo preserves numeric cursor values that cannot be
+// represented exactly as float64 while retaining float64 for safe values.
+func unmarshallCursorFromDynamo(av map[string]types.AttributeValue) (Item, error) {
+	var cursor Item
+	if err := attributevalue.UnmarshalMapWithOptions(av, &cursor, func(options *attributevalue.DecoderOptions) {
+		options.UseNumber = true
+	}); err != nil {
+		return nil, err
+	}
+
+	for key, value := range cursor {
+		number, ok := value.(attributevalue.Number)
+		if !ok {
+			continue
+		}
+
+		original, ok := new(big.Rat).SetString(number.String())
+		if !ok {
+			return nil, fmt.Errorf("invalid numeric cursor value %q for key %q", number, key)
+		}
+		cursor[key] = json.Number(number.String())
+
+		asFloat, err := number.Float64()
+		if err != nil {
+			continue
+		}
+		encoded, err := marshallForDynamo(Item{"value": asFloat})
+		if err != nil {
+			continue
+		}
+		encodedNumber, ok := encoded["value"].(*types.AttributeValueMemberN)
+		if !ok {
+			continue
+		}
+		roundTrip, ok := new(big.Rat).SetString(encodedNumber.Value)
+		if ok && original.Cmp(roundTrip) == 0 {
+			cursor[key] = asFloat
+		}
+	}
+	return cursor, nil
 }
