@@ -5,15 +5,33 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
 	"testing"
 
 	ot "github.com/cloudxsgmbh/dynamodb-onetable-go"
 )
 
+type lockedLogBuffer struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (b *lockedLogBuffer) Write(value []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.Write(value)
+}
+
+func (b *lockedLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.String()
+}
+
 func TestInfoLogOmitsReadRequestValues(t *testing.T) {
-	var output bytes.Buffer
+	output := &lockedLogBuffer{}
 	previous := log.Writer()
-	log.SetOutput(&output)
+	log.SetOutput(output)
 	t.Cleanup(func() { log.SetOutput(previous) })
 
 	table, _ := makeTable(t, "ReadRequestSecretTable", DefaultSchema, false)
@@ -27,10 +45,38 @@ func TestInfoLogOmitsReadRequestValues(t *testing.T) {
 			t.Errorf("INFO log contains request value %q", secret)
 		}
 	}
-	for _, metadata := range []string{"OneTable", "get", "User"} {
+	for _, metadata := range []string{"OneTable", "get", "User", `"op":"get"`} {
 		if !strings.Contains(logged, metadata) {
 			t.Errorf("INFO log is missing safe metadata %q", metadata)
 		}
+	}
+}
+
+func TestInfoLogOmitsUnexecutedCommandValues(t *testing.T) {
+	output := &lockedLogBuffer{}
+	previous := log.Writer()
+	log.SetOutput(output)
+	t.Cleanup(func() { log.SetOutput(previous) })
+
+	table, _ := makeTable(t, "DryRunSecretTable", DefaultSchema, false)
+	execute := false
+	command, err := table.Get(context.Background(), "User", ot.Item{
+		"id": "dry-run-key-secret-7ac1",
+	}, &ot.Params{Execute: &execute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if command["TableName"] != "DryRunSecretTable" || command["Key"] == nil {
+		t.Fatalf("Execute=false stopped returning the prepared command: %#v", command)
+	}
+	logged := output.String()
+	for _, secret := range []string{"DryRunSecretTable", "dry-run-key-secret-7ac1"} {
+		if strings.Contains(logged, secret) {
+			t.Errorf("INFO log contains unexecuted request value %q", secret)
+		}
+	}
+	if !strings.Contains(logged, "OneTable") || !strings.Contains(logged, `"op":"get"`) {
+		t.Errorf("INFO log is missing safe operation metadata")
 	}
 }
 
@@ -57,9 +103,9 @@ func TestInfoLogOmitsTransactionRequestValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var output bytes.Buffer
+	output := &lockedLogBuffer{}
 	previous := log.Writer()
-	log.SetOutput(&output)
+	log.SetOutput(output)
 	t.Cleanup(func() { log.SetOutput(previous) })
 
 	tx := ot.NewTransaction()
@@ -102,7 +148,7 @@ func TestInfoLogOmitsTransactionRequestValues(t *testing.T) {
 			t.Errorf("INFO log contains transaction value %q", secret)
 		}
 	}
-	if !strings.Contains(logged, "OneTable") || !strings.Contains(logged, "transactWrite") {
+	if !strings.Contains(logged, "OneTable") || !strings.Contains(logged, `"op":"transactWrite"`) {
 		t.Errorf("INFO log is missing safe transaction metadata")
 	}
 }

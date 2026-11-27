@@ -12,8 +12,8 @@ Prevent OneTable from writing DynamoDB request contents to INFO logs, which can 
 
 ## Design and constraints
 
-- In `table.go`, log operation and model only; never include command/properties/keys/values in INFO output.
-- Add regression tests for sensitive values in a normal read and a mixed write transaction; verify safe operation metadata remains visible.
+- In `table.go` and the non-executed path in `model.go`, log operation and model only; never include command/properties/keys/values in INFO output.
+- Add regression tests for sensitive values in a normal read, an `Execute:false` prepared command, and a typed transaction; verify safe operation metadata remains visible and the prepared command is still returned to the caller.
 - Add a `v0.13.1` release entry to `RELEASE_NOTES.md`.
 - Run library tests, formatter and linter; request review, create and merge a GitHub PR, then create and push the `v0.13.1` tag on the merge commit.
 - Do not log request or response data, or alter database operation behavior.

@@ -539,7 +539,7 @@ func (m *Model) run(ctx context.Context, op string, expr *expression) (Item, err
 	// return command without executing
 	if !expr.execute {
 		logger.Info(fmt.Sprintf(`OneTable command for "%s" "%s" (not executed)`, op, m.Name),
-			map[string]any{"cmd": cmd, "op": op})
+			map[string]any{"op": op})
 		return cmd, nil
 	}
 

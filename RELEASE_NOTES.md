@@ -4,7 +4,7 @@
 
 November 27, 2026
 
-- Stop logging DynamoDB request contents at INFO level to prevent sensitive keys and values from appearing in logs.
+- Stop logging DynamoDB request and prepared command contents at INFO level; operation/model metadata remains, but the `cmd` log field is removed.
 
 # v0.13.0
 
