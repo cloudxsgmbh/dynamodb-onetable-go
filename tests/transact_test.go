@@ -2,7 +2,11 @@
 package tests
 
 import (
+	"context"
 	"testing"
+
+	ddb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	ot "github.com/cloudxsgmbh/dynamodb-onetable-go"
 )
@@ -118,5 +122,80 @@ func TestTransact_GetWithoutParse(t *testing.T) {
 	}
 	if raw["Responses"] == nil {
 		t.Error("expected Responses")
+	}
+}
+
+func TestFullMockTransactWriteItemsConditionCheck(t *testing.T) {
+	mock := newFullMock()
+	tableName := "ConditionCheckTable"
+	condition := "status = :expected"
+	mock.tables[tableName] = map[string]map[string]types.AttributeValue{
+		"user||1": {
+			"pk":     &types.AttributeValueMemberS{Value: "user"},
+			"sk":     &types.AttributeValueMemberS{Value: "1"},
+			"status": &types.AttributeValueMemberS{Value: "active"},
+		},
+	}
+
+	_, err := mock.TransactWriteItems(context.Background(), &ddb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{{
+			ConditionCheck: &types.ConditionCheck{
+				TableName:           &tableName,
+				Key:                 map[string]types.AttributeValue{"pk": &types.AttributeValueMemberS{Value: "user"}, "sk": &types.AttributeValueMemberS{Value: "1"}},
+				ConditionExpression: &condition,
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":expected": &types.AttributeValueMemberS{Value: "active"},
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("TransactWriteItems with passing ConditionCheck: %v", err)
+	}
+	if got := mock.tables[tableName]["user||1"]["status"].(*types.AttributeValueMemberS).Value; got != "active" {
+		t.Fatalf("ConditionCheck modified existing item status: got %q", got)
+	}
+}
+
+func TestFullMockTransactWriteItemsConditionCheckFailureIsAtomic(t *testing.T) {
+	mock := newFullMock()
+	tableName := "ConditionCheckTable"
+	condition := "status = :expected"
+	mock.tables[tableName] = map[string]map[string]types.AttributeValue{
+		"user||1": {
+			"pk":     &types.AttributeValueMemberS{Value: "user"},
+			"sk":     &types.AttributeValueMemberS{Value: "1"},
+			"status": &types.AttributeValueMemberS{Value: "inactive"},
+		},
+	}
+
+	_, err := mock.TransactWriteItems(context.Background(), &ddb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{Put: &types.Put{
+				TableName: &tableName,
+				Item: map[string]types.AttributeValue{
+					"pk":     &types.AttributeValueMemberS{Value: "user"},
+					"sk":     &types.AttributeValueMemberS{Value: "2"},
+					"status": &types.AttributeValueMemberS{Value: "active"},
+				},
+			}},
+			{ConditionCheck: &types.ConditionCheck{
+				TableName:           &tableName,
+				Key:                 map[string]types.AttributeValue{"pk": &types.AttributeValueMemberS{Value: "user"}, "sk": &types.AttributeValueMemberS{Value: "1"}},
+				ConditionExpression: &condition,
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":expected": &types.AttributeValueMemberS{Value: "active"},
+				},
+			}},
+		},
+	})
+	if err == nil {
+		t.Fatal("TransactWriteItems with failing ConditionCheck succeeded, want condition failure")
+	}
+	if got := mock.tables[tableName]["user||1"]["status"].(*types.AttributeValueMemberS).Value; got != "inactive" {
+		t.Fatalf("failed transaction modified checked item status: got %q", got)
+	}
+	if _, exists := mock.tables[tableName]["user||2"]; exists {
+		t.Fatal("failed ConditionCheck left the earlier Put applied")
 	}
 }
