@@ -16,6 +16,7 @@ type scriptedScanClient struct {
 	ot.DynamoClient
 	responses  []*ddb.ScanOutput
 	queries    []*ddb.QueryOutput
+	scanErrors []error
 	err        error
 	calls      []*ddb.ScanInput
 	queryCalls []*ddb.QueryInput
@@ -23,6 +24,9 @@ type scriptedScanClient struct {
 
 func (c *scriptedScanClient) Scan(_ context.Context, input *ddb.ScanInput, _ ...func(*ddb.Options)) (*ddb.ScanOutput, error) {
 	c.calls = append(c.calls, input)
+	if callIndex := len(c.calls) - 1; callIndex < len(c.scanErrors) && c.scanErrors[callIndex] != nil {
+		return nil, c.scanErrors[callIndex]
+	}
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -175,6 +179,46 @@ func TestScan_CountLimitUsesRemainingResultBudget(t *testing.T) {
 	}
 }
 
+func TestScan_MaxPagesAlsoBoundsLimitBudget(t *testing.T) {
+	for _, maxPages := range []int{1, 2} {
+		t.Run(fmt.Sprintf("max-pages-%d", maxPages), func(t *testing.T) {
+			client := &scriptedScanClient{responses: []*ddb.ScanOutput{
+				{Items: []map[string]types.AttributeValue{scanItem(t, "1"), scanItem(t, "2")}, Count: 2, ScannedCount: 3, LastEvaluatedKey: scanKey(t, "3")},
+				{Items: []map[string]types.AttributeValue{scanItem(t, "4")}, Count: 1, ScannedCount: 1, LastEvaluatedKey: scanKey(t, "4")},
+			}}
+			tbl := newScanTable(t, client)
+
+			result, err := tbl.ScanItems(context.Background(), ot.Item{}, &ot.Params{Limit: 3, MaxPages: maxPages, Where: "${status} = {active}"})
+			if err != nil {
+				t.Fatalf("ScanItems: %v", err)
+			}
+			wantItems := 2
+			if maxPages == 2 {
+				wantItems = 3
+			}
+			if got := len(result.Items); got != wantItems {
+				t.Fatalf("ScanItems returned %d items with MaxPages=%d, want %d", got, maxPages, wantItems)
+			}
+			if got := len(client.calls); got != maxPages {
+				t.Fatalf("Scan called %d times with MaxPages=%d, want %d", got, maxPages, maxPages)
+			}
+			wantCursor := "item#3"
+			if maxPages == 2 {
+				wantCursor = "item#4"
+			}
+			if result.Next == nil || result.Next["pk"] != wantCursor {
+				t.Errorf("Next = %v with MaxPages=%d, want cursor %q", result.Next, maxPages, wantCursor)
+			}
+			if client.calls[0].Limit == nil || *client.calls[0].Limit != 3 {
+				t.Errorf("first Scan Limit = %v, want 3", client.calls[0].Limit)
+			}
+			if maxPages == 2 && (client.calls[1].Limit == nil || *client.calls[1].Limit != 1) {
+				t.Errorf("second Scan Limit = %v, want remaining result budget 1", client.calls[1].Limit)
+			}
+		})
+	}
+}
+
 func TestScan_ContinuesWhenFilteredPageHasContinuationKey(t *testing.T) {
 	client := &scriptedScanClient{responses: []*ddb.ScanOutput{
 		{Items: []map[string]types.AttributeValue{}, Count: 0, ScannedCount: 3, LastEvaluatedKey: scanKey(t, "3")},
@@ -208,6 +252,34 @@ func TestScan_PropagatesDynamoDBError(t *testing.T) {
 	var tableErr *ot.OneTableError
 	if !errors.As(err, &tableErr) || tableErr.Code != ot.ErrRuntime {
 		t.Fatalf("ScanItems error = %T (%v), want RuntimeError wrapping service error", err, err)
+	}
+}
+
+func TestScan_PropagatesErrorFromLaterPage(t *testing.T) {
+	serviceErr := errors.New("ProvisionedThroughputExceededException: later page denied")
+	client := &scriptedScanClient{
+		responses: []*ddb.ScanOutput{{
+			Items:            []map[string]types.AttributeValue{scanItem(t, "1"), scanItem(t, "2")},
+			Count:            2,
+			ScannedCount:     3,
+			LastEvaluatedKey: scanKey(t, "3"),
+		}},
+		scanErrors: []error{nil, serviceErr},
+	}
+	tbl := newScanTable(t, client)
+
+	result, err := tbl.ScanItems(context.Background(), ot.Item{}, &ot.Params{Limit: 3, Where: "${status} = {active}"})
+	if result != nil {
+		t.Errorf("ScanItems result = %v, want nil when later page fails", result)
+	}
+	if !errors.Is(err, serviceErr) {
+		t.Fatalf("ScanItems error = %v, want wrapped later-page error %v", err, serviceErr)
+	}
+	if len(client.calls) != 2 {
+		t.Fatalf("Scan calls = %d, want 2", len(client.calls))
+	}
+	if client.calls[1].Limit == nil || *client.calls[1].Limit != 1 {
+		t.Errorf("failing Scan Limit = %v, want remaining result budget 1", client.calls[1].Limit)
 	}
 }
 
