@@ -272,6 +272,27 @@ func (m *Model) Get(ctx context.Context, properties Item, params *Params) (Item,
 	return item, nil
 }
 
+// Check adds a standalone condition check to a write transaction without executing it.
+// A transaction and a Where condition or Exists modifier are required.
+func (m *Model) Check(ctx context.Context, properties Item, params *Params) (Item, error) {
+	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true})
+	if params.Transaction == nil {
+		return nil, NewArgError("Check requires a transaction")
+	}
+	if strings.TrimSpace(params.Where) == "" && params.Exists == nil {
+		return nil, NewArgError("Check requires a Where condition or Exists modifier")
+	}
+	prepared, err := m.prepareProperties(ctx, "check", properties, params)
+	if err != nil {
+		return nil, err
+	}
+	expr, err := newExpression(m, "check", prepared, params)
+	if err != nil {
+		return nil, err
+	}
+	return m.run(ctx, "check", expr)
+}
+
 // Find queries items matching the given properties.
 func (m *Model) Find(ctx context.Context, properties Item, params *Params) (*Result, error) {
 	properties, params = m.checkArgs(ctx, properties, params, &Params{Parse: true, High: true})
@@ -1564,7 +1585,7 @@ func (m *Model) createUnique(ctx context.Context, properties Item, params *Param
 				names = append(names, f.Name)
 			}
 			return nil, NewError(fmt.Sprintf(`Cannot create unique attributes "%s" for "%s". An item of the same name already exists.`,
-				strings.Join(names, ", "), m.Name), WithCode(ErrUnique))
+				strings.Join(names, ", "), m.Name), WithCode(ErrUnique), WithCause(err))
 		}
 		return nil, err
 	}
@@ -1735,7 +1756,7 @@ func (m *Model) updateUnique(ctx context.Context, properties Item, params *Param
 	_, err = m.table.Transact(ctx, "write", params.Transaction, params)
 	if err != nil {
 		if isConditionalFailed(err) {
-			return nil, NewError(fmt.Sprintf(`Cannot update unique attributes for "%s"`, m.Name), WithCode(ErrUnique))
+			return nil, NewError(fmt.Sprintf(`Cannot update unique attributes for "%s"`, m.Name), WithCode(ErrUnique), WithCause(err))
 		}
 		return nil, err
 	}
