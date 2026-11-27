@@ -1,5 +1,11 @@
 # Release notes
 
+# v0.13.1
+
+November 27, 2026
+
+- Stop logging DynamoDB request contents at INFO level to prevent sensitive keys and values from appearing in logs.
+
 # v0.13.0
 
 November 27, 2026
