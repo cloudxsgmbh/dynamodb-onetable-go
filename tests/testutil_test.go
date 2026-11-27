@@ -556,6 +556,18 @@ func (m *fullMock) TransactWriteItems(_ context.Context, p *ddb.TransactWriteIte
 					return nil, errors.New("TransactionCanceledException: condition failed for Delete")
 				}
 			}
+		case ti.ConditionCheck != nil:
+			cond := deref(ti.ConditionCheck.ConditionExpression)
+			if cond != "" {
+				tbl := m.tbl(deref(ti.ConditionCheck.TableName))
+				existing := tbl[itemKey(ti.ConditionCheck.Key)]
+				if existing == nil {
+					existing = map[string]types.AttributeValue{}
+				}
+				if !conditionPasses(existing, cond, ti.ConditionCheck.ExpressionAttributeNames, ti.ConditionCheck.ExpressionAttributeValues) {
+					return nil, errors.New("TransactionCanceledException: condition failed for ConditionCheck")
+				}
+			}
 		}
 	}
 	// second pass: apply

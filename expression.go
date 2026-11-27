@@ -717,6 +717,9 @@ func (e *expression) command() (Item, error) {
 			cursor = params.Prev
 		}
 		if cursor != nil {
+			if cursor[e.hash] == nil {
+				return nil, fmt.Errorf("marshal ExclusiveStartKey: missing hash key %q", e.hash)
+			}
 			start := Item{e.hash: cursor[e.hash]}
 			if e.sort != "" {
 				if sv := cursor[e.sort]; sv != nil {
@@ -734,9 +737,17 @@ func (e *expression) command() (Item, error) {
 			}
 			if start[e.hash] != nil {
 				mk, err := marshallForDynamo(start)
-				if err == nil {
-					args["ExclusiveStartKey"] = mk
+				if err != nil {
+					return nil, fmt.Errorf("marshal ExclusiveStartKey: %w", err)
 				}
+				for key, value := range start {
+					if value != nil {
+						if _, ok := mk[key]; !ok {
+							return nil, fmt.Errorf("marshal ExclusiveStartKey: key %q was omitted", key)
+						}
+					}
+				}
+				args["ExclusiveStartKey"] = mk
 			}
 		}
 	}

@@ -1080,11 +1080,18 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 			"Count":        int(out.Count),
 			"ScannedCount": int(out.ScannedCount),
 		}
-		if out.LastEvaluatedKey != nil {
-			lek, err := unmarshallFromDynamo(out.LastEvaluatedKey)
-			if err == nil {
-				result["LastEvaluatedKey"] = lek
+		if pageData, ok := ctx.Value(paginationPageDataContextKey{}).(*paginationPageData); ok {
+			if len(out.Items) > 0 {
+				pageData.firstItemRaw = out.Items[0]
 			}
+			pageData.lastEvaluatedKeyRaw = out.LastEvaluatedKey
+		}
+		if out.LastEvaluatedKey != nil {
+			lek, err := unmarshallCursorFromDynamo(out.LastEvaluatedKey)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal query LastEvaluatedKey: %w", err)
+			}
+			result["LastEvaluatedKey"] = lek
 		}
 
 	case "scan":
@@ -1106,11 +1113,18 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 			"Count":        int(out.Count),
 			"ScannedCount": int(out.ScannedCount),
 		}
-		if out.LastEvaluatedKey != nil {
-			lek, err := unmarshallFromDynamo(out.LastEvaluatedKey)
-			if err == nil {
-				result["LastEvaluatedKey"] = lek
+		if pageData, ok := ctx.Value(paginationPageDataContextKey{}).(*paginationPageData); ok {
+			if len(out.Items) > 0 {
+				pageData.firstItemRaw = out.Items[0]
 			}
+			pageData.lastEvaluatedKeyRaw = out.LastEvaluatedKey
+		}
+		if out.LastEvaluatedKey != nil {
+			lek, err := unmarshallCursorFromDynamo(out.LastEvaluatedKey)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal scan LastEvaluatedKey: %w", err)
+			}
+			result["LastEvaluatedKey"] = lek
 		}
 
 	case "batchGet":

@@ -64,6 +64,47 @@ Pending.Remove(ctx, onetable.Item{"id": "pending1"}, &onetable.Params{Transactio
 _, err := table.Transact(ctx, "write", tx, nil)
 ```
 
+### Typed mixed-table write transactions
+
+`NewTransaction` provides a typed accumulator for model operations and standalone condition checks. It preserves the same transaction map used by `Params.Transaction`, so existing map-based transactions remain supported.
+
+```go
+tx := onetable.NewTransaction()
+accountParams, err := tx.Params(nil)
+if err != nil {
+    return err
+}
+
+// Account and Session are models from separate Table instances. Both tables
+// must be reachable through the DynamoDB client used to execute the request.
+if _, err := Account.Create(ctx, onetable.Item{"id": "a1"}, accountParams); err != nil {
+    return err
+}
+sessionParams, err := tx.Params(&onetable.Params{Where: `${status} = {idle}`})
+if err != nil {
+    return err
+}
+if _, err := Session.Update(ctx, onetable.Item{"id": "s1", "status": "active"},
+    sessionParams); err != nil {
+    return err
+}
+if _, err := tx.Check(ctx, Session, onetable.Item{"id": "s2"}, &onetable.Params{
+    Where: `${status} = {pending}`,
+}); err != nil {
+    return err
+}
+
+// Execute exactly one atomic write request through either table's client.
+_, err := tx.Write(ctx, accountTable, nil)
+return err
+```
+
+The transaction retains each model's table name; it does not merge separate tables into one schema. The chosen execution table supplies the DynamoDB client, so all target tables must be in the same AWS account and region. DynamoDB's 100-item / 4 MB limits and same-item conflict rules apply.
+
+Each `Params` call returns a copy and clones the mutable `Set` and `Remove` containers; other reference-valued modifiers remain shallow copies. Call it separately with fresh operation modifiers to avoid sharing mutable values. `Model.Check` accepts either `Where` or `Exists` as its condition. A transaction accumulator is not safe for concurrent use; add operations sequentially. `Write` does not consume the accumulator, so calling it again resubmits the same operations and is not automatically idempotent. Cancellation errors retain their underlying AWS error through `OneTableError.Unwrap`, so callers can inspect it with `errors.As`.
+
+Model operations on unique fields add their unique-index guard operations to the same transaction. A collision is reported when `Write` executes, typically as a transaction-cancelled runtime error rather than the `ErrUnique` mapping used by standalone unique creates; the wrapped AWS cause remains available through `errors.As`.
+
 ### Upserts in transactions
 
 Use `Update` with `Exists: nil` to create-or-update within a transaction:
