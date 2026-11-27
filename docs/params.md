@@ -26,7 +26,7 @@ type Params struct { ... }
 | `Follow` | `*bool` | index default | Re-fetch each item from the primary index after a query. Useful for `KEYS_ONLY` GSIs. |
 | `Hidden` | `*bool` | table default | `true` → include hidden fields in the returned `Item`. `false` → exclude them explicitly. |
 | `Index` | `string` | `"primary"` | Name of the index to use. |
-| `Limit` | `int` | 0 (unlimited) | Maximum number of items for DynamoDB to read. Note: this is the DynamoDB scan limit, not the number of returned items after filtering. |
+| `Limit` | `int` | 0 (unlimited) | Maximum number of matching items accumulated by `Find` / `Scan`. The first DynamoDB Query / Scan request uses this evaluated-item cap; subsequent requests use the remaining result budget. Count-only operations budget by accumulated matching count. |
 | `Log` | `*bool` | `false` | Force logging of this API call at `info` level. |
 | `Many` | `bool` | `false` | Allow `Remove` to delete more than one matching item. |
 | `MaxPages` | `int` | 1000 | Maximum number of DynamoDB query/scan pages before stopping. Prevents infinite loops on large tables. |
@@ -44,6 +44,10 @@ type Params struct { ... }
 | `Substitutions` | `map[string]any` | — | Named variables for use in `Where` and `Set` expressions via `@{varName}`. |
 | `Transaction` | `map[string]any` | — | Transaction accumulator. Pass to multiple API calls; execute with `Table.Transact`. |
 | `Where` | `string` | — | Filter or condition expression template. See [where.md](where.md). |
+
+`Limit` caps returned matching items; it does not cap total items evaluated or read capacity across pages. DynamoDB applies its per-request `Limit` before `FilterExpression`, so a page may return fewer matches—or none—and still have a continuation key. OneTable continues with the remaining result budget; filtered-out items can therefore make aggregate scans and read costs exceed `Limit`. `Stats` aggregates page counts and scans, while `MaxPages` can stop pagination before the result budget is met. If fewer matching items remain, or `MaxPages` is reached, the result can contain fewer than `Limit` items.
+
+Previously, `runMulti` reused the full `Limit` on every request and could return more matching items than requested when the final page overfilled the budget. It now reduces subsequent request limits to the remaining budget, preventing that over-return while preserving DynamoDB's per-page evaluated-item semantics.
 
 ---
 

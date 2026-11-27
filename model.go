@@ -613,6 +613,18 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 	pages := 0
 
 	for {
+		if params.Limit > 0 && pages > 0 {
+			used := len(rawItems)
+			if params.Count || params.Select == "COUNT" {
+				used = totalCount
+			}
+			remaining := params.Limit - used
+			if remaining <= 0 {
+				break
+			}
+			cmd["Limit"] = remaining
+		}
+
 		pageCtx := ctx
 		if pageCtx == nil {
 			pageCtx = context.Background()
@@ -658,7 +670,11 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 			cmd["ExclusiveStartKey"] = pageData.lastEvaluatedKeyRaw
 		}
 
-		if params.Limit > 0 && len(rawItems) >= params.Limit {
+		limitUsed := len(rawItems)
+		if params.Count || params.Select == "COUNT" {
+			limitUsed = totalCount
+		}
+		if params.Limit > 0 && limitUsed >= params.Limit {
 			break
 		}
 		pages++
@@ -703,7 +719,6 @@ func (m *Model) runMulti(ctx context.Context, op string, expr *expression) (*Res
 			maps.Copy(prev, decoded)
 		}
 	}
-
 	// parse response
 	var items []Item
 	if params.Parse {
