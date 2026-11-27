@@ -975,7 +975,7 @@ func (t *Table) execute(ctx context.Context, modelName, op string, cmd Item, pro
 		return nil, NewArgError("Table has no DynamoDB client configured")
 	}
 
-	logger.Info(fmt.Sprintf(`OneTable "%s" "%s"`, op, modelName), map[string]any{"cmd": cmd, "op": op})
+	logger.Info(fmt.Sprintf(`OneTable "%s" "%s"`, op, modelName), map[string]any{"op": op})
 
 	var result Item
 	var execErr error

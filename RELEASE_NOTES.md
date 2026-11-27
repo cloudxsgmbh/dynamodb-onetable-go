@@ -1,5 +1,11 @@
 # Release notes
 
+# v0.13.1
+
+November 27, 2026
+
+- Stop logging DynamoDB request and prepared command contents at INFO level; operation/model metadata remains, but the `cmd` log field is removed.
+
 # v0.13.0
 
 November 27, 2026
